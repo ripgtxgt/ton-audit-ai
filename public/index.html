@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TonAudit AI — TON Smart Contract Security Auditor</title>
+<style>
+:root {
+  --bg: #0a0b0f;
+  --surface: #13151f;
+  --surface2: #1a1d2e;
+  --border: #252840;
+  --border2: #2e3154;
+  --accent: #4f7fff;
+  --accent2: #7b5ea7;
+  --text: #e4e6f0;
+  --text-muted: #6b7298;
+  --text-dim: #3d4166;
+  --critical: #ff4d6a;
+  --high: #ff7d3b;
+  --medium: #f5c542;
+  --low: #4ade80;
+  --info: #60c4ff;
+  --clean: #4ade80;
+  --radius: 10px;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Nav ── */
+nav {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 32px;
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 10;
+  background: rgba(10,11,15,0.92);
+  backdrop-filter: blur(12px);
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-icon {
+  width: 36px; height: 36px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.logo-text { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+.logo-text span { color: var(--accent); }
+.nav-badge {
+  margin-left: auto;
+  font-size: 11px; padding: 3px 10px;
+  background: rgba(79,127,255,0.12); border: 1px solid rgba(79,127,255,0.3);
+  border-radius: 20px; color: var(--accent);
+}
+.nav-links { display: flex; gap: 20px; }
+.nav-links a { font-size: 13px; color: var(--text-muted); text-decoration: none; transition: color .15s; }
+.nav-links a:hover { color: var(--text); }
+
+/* ── Hero ── */
+.hero {
+  text-align: center;
+  padding: 60px 24px 40px;
+  background: radial-gradient(ellipse 800px 400px at 50% -100px, rgba(79,127,255,0.07) 0%, transparent 70%);
+}
+.hero-tag {
+  display: inline-block; font-size: 12px; letter-spacing: .08em;
+  padding: 4px 12px; border-radius: 20px; margin-bottom: 20px;
+  background: rgba(79,127,255,0.1); border: 1px solid rgba(79,127,255,0.25);
+  color: var(--accent); text-transform: uppercase;
+}
+.hero h1 {
+  font-size: clamp(28px, 5vw, 48px);
+  font-weight: 800; letter-spacing: -1px;
+  line-height: 1.15; margin-bottom: 16px;
+}
+.hero h1 .grad {
+  background: linear-gradient(135deg, var(--accent), #a78fff);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero p {
+  font-size: 16px; color: var(--text-muted);
+  max-width: 560px; margin: 0 auto 32px; line-height: 1.7;
+}
+.hero-stats {
+  display: flex; gap: 32px; justify-content: center;
+  flex-wrap: wrap; margin-bottom: 40px;
+}
+.stat { text-align: center; }
+.stat-value { font-size: 24px; font-weight: 700; color: var(--accent); }
+.stat-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+/* ── Main layout ── */
+.main { display: flex; gap: 0; flex: 1; max-width: 1400px; margin: 0 auto; width: 100%; }
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 280px; flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  padding: 24px 16px;
+  position: sticky; top: 69px;
+  height: calc(100vh - 69px);
+  overflow-y: auto;
+}
+.sidebar-section { margin-bottom: 24px; }
+.sidebar-title {
+  font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 10px; padding: 0 8px;
+}
+.sample-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 6px;
+  cursor: pointer; transition: background .15s;
+  font-size: 13px; color: var(--text-muted);
+}
+.sample-item:hover { background: var(--surface2); color: var(--text); }
+.sample-item.active { background: rgba(79,127,255,0.12); color: var(--accent); }
+.sample-icon { font-size: 14px; flex-shrink: 0; }
+.sample-info { flex: 1; min-width: 0; }
+.sample-name { font-weight: 500; truncate: ellipsis; overflow: hidden; white-space: nowrap; }
+.sample-lines { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+
+/* ── Editor pane ── */
+.editor-pane {
+  flex: 1; padding: 24px 28px;
+  min-width: 0;
+  border-right: 1px solid var(--border);
+}
+.pane-header {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+}
+.pane-title { font-size: 14px; font-weight: 600; }
+.pane-subtitle { font-size: 12px; color: var(--text-muted); margin-left: auto; }
+
+.editor-tabs {
+  display: flex; gap: 4px; margin-bottom: 12px;
+  background: var(--surface); border-radius: 8px; padding: 4px;
+  width: fit-content;
+}
+.tab {
+  padding: 6px 14px; border-radius: 6px; font-size: 13px;
+  cursor: pointer; transition: all .15s;
+  color: var(--text-muted); border: none; background: none;
+}
+.tab.active { background: var(--surface2); color: var(--text); }
+
+.drop-zone {
+  border: 2px dashed var(--border2); border-radius: var(--radius);
+  padding: 32px; text-align: center; cursor: pointer;
+  transition: all .15s; margin-bottom: 12px;
+  display: none;
+}
+.drop-zone.active { display: block; }
+.drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: rgba(79,127,255,0.05); }
+.drop-icon { font-size: 32px; margin-bottom: 8px; }
+.drop-text { font-size: 14px; color: var(--text-muted); }
+.drop-sub { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+
+#code-input {
+  width: 100%; height: 380px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text);
+  font-family: var(--mono); font-size: 13px; line-height: 1.6;
+  padding: 16px; resize: vertical; outline: none; transition: border-color .15s;
+  display: block;
+}
+#code-input:focus { border-color: var(--accent); }
+#code-input::placeholder { color: var(--text-dim); }
+
+.file-info {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text-muted); margin-top: 8px;
+  padding: 8px 12px; background: var(--surface); border-radius: 6px;
+  display: none;
+}
+.file-info.visible { display: flex; }
+
+.audit-btn {
+  width: 100%; margin-top: 16px;
+  padding: 14px; border-radius: var(--radius); border: none;
+  background: linear-gradient(135deg, var(--accent), #6a5acd);
+  color: white; font-size: 15px; font-weight: 600;
+  cursor: pointer; transition: all .2s; letter-spacing: .01em;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.audit-btn:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(79,127,255,0.3); }
+.audit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+.audit-btn .spinner {
+  width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite;
+  display: none;
+}
+.audit-btn.loading .spinner { display: block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.status-bar {
+  margin-top: 12px; padding: 10px 14px; border-radius: 6px;
+  background: var(--surface); font-size: 13px; color: var(--text-muted);
+  display: none; align-items: center; gap: 8px;
+}
+.status-bar.visible { display: flex; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* ── Report pane ── */
+.report-pane {
+  width: 460px; flex-shrink: 0;
+  padding: 24px 24px;
+  overflow-y: auto;
+}
+
+.report-empty {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; height: 100%; text-align: center;
+  color: var(--text-dim); padding: 40px;
+}
+.report-empty-icon { font-size: 48px; margin-bottom: 16px; }
+.report-empty p { font-size: 14px; line-height: 1.6; }
+
+/* Score ring */
+.score-widget {
+  display: flex; align-items: center; gap: 20px;
+  padding: 20px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 16px;
+}
+.score-ring-wrap { position: relative; flex-shrink: 0; }
+.score-ring { transform: rotate(-90deg); }
+.score-value {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 22px; font-weight: 800;
+}
+.score-info h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.score-info p { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+
+.risk-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.risk-critical { background: rgba(255,77,106,0.15); color: var(--critical); border: 1px solid rgba(255,77,106,0.3); }
+.risk-high { background: rgba(255,125,59,0.15); color: var(--high); border: 1px solid rgba(255,125,59,0.3); }
+.risk-medium { background: rgba(245,197,66,0.15); color: var(--medium); border: 1px solid rgba(245,197,66,0.3); }
+.risk-low { background: rgba(74,222,128,0.15); color: var(--low); border: 1px solid rgba(74,222,128,0.3); }
+.risk-clean { background: rgba(74,222,128,0.15); color: var(--clean); border: 1px solid rgba(74,222,128,0.3); }
+
+/* Report meta */
+.report-meta {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px; margin-bottom: 16px;
+}
+.meta-card {
+  padding: 12px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.meta-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .05em; }
+.meta-value { font-size: 14px; font-weight: 600; margin-top: 3px; }
+
+/* Findings */
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 20px 0 12px;
+}
+.section-title { font-size: 14px; font-weight: 600; }
+.findings-count {
+  font-size: 12px; color: var(--text-muted);
+  padding: 2px 8px; background: var(--surface); border-radius: 20px;
+}
+
+.finding-card {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  margin-bottom: 10px; overflow: hidden;
+  transition: border-color .15s;
+}
+.finding-card:hover { border-color: var(--border2); }
+.finding-header {
+  padding: 12px 14px; cursor: pointer;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface);
+}
+.severity-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.sev-critical { background: var(--critical); box-shadow: 0 0 6px var(--critical); }
+.sev-high { background: var(--high); box-shadow: 0 0 6px var(--high); }
+.sev-medium { background: var(--medium); }
+.sev-low { background: var(--low); }
+.sev-info { background: var(--info); }
+
+.finding-title { font-size: 13px; font-weight: 600; flex: 1; }
+.finding-id { font-size: 11px; color: var(--text-dim); font-family: var(--mono); }
+.finding-chevron { color: var(--text-dim); font-size: 10px; transition: transform .2s; }
+.finding-card.open .finding-chevron { transform: rotate(180deg); }
+
+.finding-body {
+  display: none; padding: 14px; border-top: 1px solid var(--border);
+  background: var(--surface2);
+}
+.finding-card.open .finding-body { display: block; }
+
+.finding-row { margin-bottom: 10px; }
+.finding-row-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+.finding-row-value { font-size: 13px; line-height: 1.6; color: var(--text-muted); }
+.finding-row.rec .finding-row-value { color: var(--low); }
+
+.code-block {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 10px 12px;
+  font-family: var(--mono); font-size: 12px; line-height: 1.6;
+  color: #a8b4ff; white-space: pre-wrap; word-break: break-all;
+  margin-top: 4px; overflow-x: auto;
+}
+
+/* Analysis sections */
+.analysis-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px; margin-bottom: 10px;
+}
+.analysis-card h4 { font-size: 13px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.analysis-card p { font-size: 13px; color: var(--text-muted); line-height: 1.7; }
+
+/* ── Footer ── */
+footer {
+  border-top: 1px solid var(--border); padding: 20px 32px;
+  text-align: center; font-size: 12px; color: var(--text-dim);
+}
+footer a { color: var(--text-muted); text-decoration: none; }
+footer a:hover { color: var(--text); }
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .report-pane { width: 380px; }
+  .sidebar { width: 220px; }
+}
+@media (max-width: 800px) {
+  .sidebar { display: none; }
+  .main { flex-direction: column; }
+  .editor-pane, .report-pane { width: 100%; border: none; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">
+    <div class="logo-icon">🔐</div>
+    <div class="logo-text">Ton<span>Audit</span> AI</div>
+  </div>
+  <div class="nav-links">
+    <a href="#" onclick="scrollToEditor()">Audit</a>
+    <a href="https://github.com/ripgtxgt" target="_blank">GitHub</a>
+  </div>
+  <div class="nav-badge">Powered by Claude</div>
+</nav>
+
+<div class="hero">
+  <div class="hero-tag">TON Blockchain Security</div>
+  <h1>AI-Powered <span class="grad">Smart Contract</span><br>Security Auditor</h1>
+  <p>Instantly audit FunC and Tact contracts for vulnerabilities, gas inefficiencies, and standard deviations. Powered by Claude AI.</p>
+  <div class="hero-stats">
+    <div class="stat"><div class="stat-value">15+</div><div class="stat-label">Vulnerability Categories</div></div>
+    <div class="stat"><div class="stat-value">FunC & Tact</div><div class="stat-label">Languages Supported</div></div>
+    <div class="stat"><div class="stat-value">&lt;30s</div><div class="stat-label">Audit Time</div></div>
+    <div class="stat"><div class="stat-value">Claude Opus</div><div class="stat-label">AI Model</div></div>
+  </div>
+</div>
+
+<div class="main" id="editor-section">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-title">Sample Contracts</div>
+      <div id="sample-list">
+        <div style="font-size:12px;color:var(--text-dim);padding:8px">Loading...</div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Vulnerability Coverage</div>
+      <div style="padding: 0 8px;">
+        <div style="font-size:12px;color:var(--text-muted);line-height:2;">
+          ✓ Reentrancy via messages<br>
+          ✓ Bounce handler validation<br>
+          ✓ Access control<br>
+          ✓ Integer overflow<br>
+          ✓ Storage exhaustion<br>
+          ✓ Gas griefing<br>
+          ✓ TEP-74 Jetton compliance<br>
+          ✓ TEP-62 NFT compliance<br>
+          ✓ DNS rebinding (TVM)<br>
+          ✓ Replay attacks
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Editor -->
+  <div class="editor-pane">
+    <div class="pane-header">
+      <div class="pane-title">Contract Input</div>
+      <div class="pane-subtitle">FunC (.fc) or Tact (.tact)</div>
+    </div>
+
+    <div class="editor-tabs">
+      <button class="tab active" onclick="switchTab('paste')">📝 Paste Code</button>
+      <button class="tab" onclick="switchTab('upload')">📁 Upload File</button>
+    </div>
+
+    <textarea id="code-input"
+      placeholder=";; Paste your FunC or Tact contract here...
+;; Example:
+() recv_internal(int msg_value, cell in_msg_full, slice in_msg_body) impure {
+  ;; Your contract logic
+}"
+    ></textarea>
+
+    <div class="drop-zone" id="drop-zone" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)" onclick="triggerFileInput()">
+      <div class="drop-icon">📄</div>
+      <div class="drop-text">Drop your .fc or .tact file here</div>
+      <div class="drop-sub">or click to browse</div>
+    </div>
+    <input type="file" id="file-input" accept=".fc,.func,.tact" style="display:none" onchange="onFileSelect(event)">
+
+    <div class="file-info" id="file-info">
+      <span>📄</span>
+      <span id="file-name-display">—</span>
+      <span style="margin-left:auto;cursor:pointer;color:var(--text-dim)" onclick="clearFile()">✕</span>
+    </div>
+
+    <button class="audit-btn" id="audit-btn" onclick="runAudit()">
+      <div class="spinner"></div>
+      <span class="btn-text">🔍 Run Security Audit</span>
+    </button>
+
+    <div class="status-bar" id="status-bar">
+      <div class="status-dot"></div>
+      <span id="status-text">Initializing...</span>
+    </div>
+  </div>
+
+  <!-- Report -->
+  <div class="report-pane" id="report-pane">
+    <div class="report-empty" id="report-empty">
+      <div class="report-empty-icon">🛡️</div>
+      <p>Paste a FunC or Tact contract and click <strong>Run Security Audit</strong> to get a detailed security report.</p>
+    </div>
+    <div id="report-content" style="display:none"></div>
+  </div>
+</div>
+
+<footer>
+  TonAudit AI — Built for TokenTon26 Hackathon ·
+  <a href="https://github.com/ripgtxgt" target="_blank">github.com/ripgtxgt</a> ·
+  Powered by Anthropic Claude
+</footer>
+
+<script>
+let currentFile = null;
+let currentTab = 'paste';
+
+function scrollToEditor() {
+  document.getElementById('editor-section').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── Sample loading ────────────────────────────────────────────────────────────
+async function loadSamples() {
+  try {
+    const res = await fetch('/api/samples');
+    const { samples } = await res.json();
+    const list = document.getElementById('sample-list');
+    if (!samples.length) { list.innerHTML = '<div style="font-size:12px;color:var(--text-dim);padding:8px">No samples available</div>'; return; }
+    list.innerHTML = samples.map(s => `
+      <div class="sample-item" onclick="loadSample('${s.name}')" id="sample-${s.name}">
+        <span class="sample-icon">${s.name.endsWith('.tact') ? '🟣' : '🔵'}</span>
+        <div class="sample-info">
+          <div class="sample-name">${s.name}</div>
+          <div class="sample-lines">${s.lines} lines</div>
+        </div>
+      </div>`).join('');
+  } catch(e) { /* silently fail */ }
+}
+
+async function loadSample(name) {
+  document.querySelectorAll('.sample-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('sample-' + name)?.classList.add('active');
+  try {
+    const res = await fetch('/api/samples/' + name);
+    const { code } = await res.json();
+    switchTab('paste');
+    document.getElementById('code-input').value = code;
+    document.getElementById('file-name-display').textContent = name;
+    document.getElementById('file-info').classList.add('visible');
+    currentFile = { name };
+  } catch(e) {}
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach((el, i) => {
+    el.classList.toggle('active', (i === 0 && tab === 'paste') || (i === 1 && tab === 'upload'));
+  });
+  document.getElementById('code-input').style.display = tab === 'paste' ? 'block' : 'none';
+  document.getElementById('drop-zone').classList.toggle('active', tab === 'upload');
+}
+
+// ── File handling ─────────────────────────────────────────────────────────────
+function triggerFileInput() { document.getElementById('file-input').click(); }
+
+function onFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  handleFile(file);
+}
+
+function handleFile(file) {
+  currentFile = file;
+  document.getElementById('file-name-display').textContent = file.name;
+  document.getElementById('file-info').classList.add('visible');
+  // Read into textarea too
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('code-input').value = e.target.result;
+    switchTab('paste');
+  };
+  reader.readAsText(file);
+}
+
+function clearFile() {
+  currentFile = null;
+  document.getElementById('file-info').classList.remove('visible');
+  document.getElementById('file-input').value = '';
+  document.querySelectorAll('.sample-item').forEach(el => el.classList.remove('active'));
+}
+
+function onDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('dragover'); }
+function onDragLeave(e) { e.currentTarget.classList.remove('dragover'); }
+function onDrop(e) {
+  e.preventDefault(); e.currentTarget.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+}
+
+// ── Audit ─────────────────────────────────────────────────────────────────────
+async function runAudit() {
+  const code = document.getElementById('code-input').value.trim();
+  if (!code) { alert('Please paste or upload a contract first'); return; }
+
+  const btn = document.getElementById('audit-btn');
+  btn.disabled = true;
+  btn.classList.add('loading');
+  btn.querySelector('.btn-text').textContent = 'Analyzing...';
+
+  const statusBar = document.getElementById('status-bar');
+  const statusText = document.getElementById('status-text');
+  statusBar.classList.add('visible');
+  statusText.textContent = '🔍 Sending contract to Claude...';
+
+  document.getElementById('report-empty').style.display = 'none';
+  document.getElementById('report-content').style.display = 'none';
+
+  const filename = currentFile?.name || 'contract.fc';
+
+  try {
+    const res = await fetch('/api/audit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, filename }),
+    });
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (line.startsWith('event: status')) continue;
+        if (line.startsWith('event: progress')) continue;
+        if (line.startsWith('data: ')) {
+          const data = JSON.parse(line.slice(6));
+          if (data.message) { statusText.textContent = data.message; }
+          if (data.contractName) {
+            // This is the report
+            renderReport(data);
+          }
+        }
+      }
+    }
+  } catch(e) {
+    statusText.textContent = '❌ Error: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('loading');
+    btn.querySelector('.btn-text').textContent = '🔍 Run Security Audit';
+    setTimeout(() => statusBar.classList.remove('visible'), 3000);
+  }
+}
+
+// ── Report rendering ──────────────────────────────────────────────────────────
+function severityColor(sev) {
+  return { critical: '#ff4d6a', high: '#ff7d3b', medium: '#f5c542', low: '#4ade80', info: '#60c4ff' }[sev] || '#aaa';
+}
+
+function renderReport(r) {
+  const content = document.getElementById('report-content');
+  content.style.display = 'block';
+  document.getElementById('report-empty').style.display = 'none';
+
+  // Score ring
+  const score = r.score;
+  const scoreColor = score >= 80 ? '#4ade80' : score >= 60 ? '#f5c542' : score >= 40 ? '#ff7d3b' : '#ff4d6a';
+  const circ = 2 * Math.PI * 36;
+  const dash = circ * score / 100;
+
+  // Severity counts
+  const counts = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+  r.findings.forEach(f => counts[f.severity] = (counts[f.severity] || 0) + 1);
+
+  const auditTime = new Date(r.auditedAt).toLocaleString();
+
+  content.innerHTML = `
+    <!-- Score -->
+    <div class="score-widget">
+      <div class="score-ring-wrap">
+        <svg class="score-ring" width="88" height="88" viewBox="0 0 88 88">
+          <circle cx="44" cy="44" r="36" fill="none" stroke="#1a1d2e" stroke-width="8"/>
+          <circle cx="44" cy="44" r="36" fill="none" stroke="${scoreColor}" stroke-width="8"
+            stroke-dasharray="${dash} ${circ}" stroke-linecap="round"
+            style="transition: stroke-dasharray 1s ease"/>
+        </svg>
+        <div class="score-value" style="color:${scoreColor}">${score}</div>
+      </div>
+      <div class="score-info">
+        <h3>${r.contractName}</h3>
+        <div style="margin-bottom:6px">
+          <span class="risk-badge risk-${r.overallRisk}">${r.overallRisk.toUpperCase()} RISK</span>
+        </div>
+        <p>${r.summary}</p>
+      </div>
+    </div>
+
+    <!-- Meta -->
+    <div class="report-meta">
+      <div class="meta-card">
+        <div class="meta-label">Language</div>
+        <div class="meta-value">${r.language === 'func' ? 'FunC' : r.language === 'tact' ? 'Tact' : 'Unknown'}</div>
+      </div>
+      <div class="meta-card">
+        <div class="meta-label">Lines of Code</div>
+        <div class="meta-value">${r.linesOfCode}</div>
+      </div>
+      <div class="meta-card">
+        <div class="meta-label">Total Findings</div>
+        <div class="meta-value">${r.findings.length}</div>
+      </div>
+      <div class="meta-card">
+        <div class="meta-label">Critical / High</div>
+        <div class="meta-value" style="color:${counts.critical > 0 ? '#ff4d6a' : counts.high > 0 ? '#ff7d3b' : '#4ade80'}">
+          ${counts.critical} / ${counts.high}
+        </div>
+      </div>
+    </div>
+
+    <!-- Findings -->
+    <div class="section-header">
+      <div class="section-title">🔎 Security Findings</div>
+      <div class="findings-count">${r.findings.length} issues</div>
+    </div>
+
+    ${r.findings.length === 0 ? `
+      <div class="analysis-card" style="text-align:center;padding:24px">
+        <div style="font-size:32px;margin-bottom:8px">✅</div>
+        <div style="font-weight:600;margin-bottom:4px">No issues found</div>
+        <div style="font-size:13px;color:var(--text-muted)">This contract looks secure!</div>
+      </div>
+    ` : r.findings.map((f, i) => `
+      <div class="finding-card" id="finding-${i}">
+        <div class="finding-header" onclick="toggleFinding(${i})">
+          <div class="severity-dot sev-${f.severity}"></div>
+          <div class="finding-title">${escHtml(f.title)}</div>
+          <div class="finding-id">${f.id}</div>
+          <div class="finding-chevron">▼</div>
+        </div>
+        <div class="finding-body">
+          ${f.location ? `<div class="finding-row">
+            <div class="finding-row-label">Location</div>
+            <div class="finding-row-value" style="font-family:var(--mono);color:var(--info)">${escHtml(f.location)}</div>
+          </div>` : ''}
+          <div class="finding-row">
+            <div class="finding-row-label">Description</div>
+            <div class="finding-row-value">${escHtml(f.description)}</div>
+          </div>
+          ${f.codeSnippet ? `<div class="finding-row">
+            <div class="finding-row-label">Code</div>
+            <div class="code-block">${escHtml(f.codeSnippet)}</div>
+          </div>` : ''}
+          <div class="finding-row rec">
+            <div class="finding-row-label">Recommendation</div>
+            <div class="finding-row-value">${escHtml(f.recommendation)}</div>
+          </div>
+        </div>
+      </div>
+    `).join('')}
+
+    <!-- Gas & Architecture -->
+    <div class="section-header" style="margin-top:24px">
+      <div class="section-title">⚙️ Analysis</div>
+    </div>
+    <div class="analysis-card">
+      <h4>⛽ Gas Analysis</h4>
+      <p>${escHtml(r.gasAnalysis)}</p>
+    </div>
+    <div class="analysis-card">
+      <h4>🏗️ Architecture Notes</h4>
+      <p>${escHtml(r.architectureNotes)}</p>
+    </div>
+
+    <div style="text-align:center;margin-top:20px;font-size:11px;color:var(--text-dim)">
+      Audited at ${auditTime} · TonAudit AI v1.0
+    </div>
+  `;
+
+  // Auto-open first critical/high finding
+  const firstImportant = r.findings.findIndex(f => f.severity === 'critical' || f.severity === 'high');
+  if (firstImportant >= 0) toggleFinding(firstImportant);
+
+  content.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function toggleFinding(i) {
+  document.getElementById('finding-' + i).classList.toggle('open');
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadSamples();
+switchTab('paste'); // ensure correct initial state
+</script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+;; Vulnerable Escrow Contract (Demo - intentionally flawed for audit testing)
+;; This contract holds TON for escrow between buyer and seller
+;; WARNING: Contains intentional security vulnerabilities for demonstration
+
+#include "stdlib.fc";
+
+;; Storage layout: owner_addr, seller_addr, buyer_addr, amount, is_completed
+(slice, slice, slice, int, int) load_data() inline {
+    var ds = get_data().begin_parse();
+    return (
+        ds~load_msg_addr(),  ;; owner
+        ds~load_msg_addr(),  ;; seller
+        ds~load_msg_addr(),  ;; buyer
+        ds~load_uint(64),    ;; amount in nanoTON
+        ds~load_uint(1)      ;; is_completed flag
+    );
+}
+
+() save_data(slice owner, slice seller, slice buyer, int amount, int completed) impure {
+    set_data(begin_cell()
+        .store_slice(owner)
+        .store_slice(seller)
+        .store_slice(buyer)
+        .store_uint(amount, 64)
+        .store_uint(completed, 1)
+        .end_cell());
+}
+
+;; VULNERABILITY 1: No sender validation - anyone can call release_funds
+() release_funds() impure {
+    var (owner, seller, buyer, amount, completed) = load_data();
+    ;; Missing: throw_unless(401, equal_slices(sender, owner));
+    
+    send_raw_message(begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(seller)
+        .store_coins(amount)
+        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .end_cell(), 0);  ;; VULNERABILITY 2: mode 0 doesn't handle errors
+    
+    save_data(owner, seller, buyer, 0, 1);
+}
+
+;; VULNERABILITY 3: No bounce handler - funds lost if seller address is invalid
+;; Missing: () bounce(slice in_msg) impure { ... }
+
+;; VULNERABILITY 4: Integer overflow - amount not validated
+() recv_internal(int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    if (in_msg_body.slice_empty?()) {
+        ;; Just accept TON deposits
+        return ();
+    }
+    
+    int op = in_msg_body~load_uint(32);
+    
+    if (op == 1) { ;; release funds
+        release_funds();
+        return ();
+    }
+    
+    if (op == 2) { ;; refund to buyer
+        var (owner, seller, buyer, amount, completed) = load_data();
+        ;; VULNERABILITY 5: No check that refund is only callable by owner
+        ;; VULNERABILITY 6: No check that escrow isn't already completed
+        
+        send_raw_message(begin_cell()
+            .store_uint(0x18, 6)
+            .store_slice(buyer)
+            .store_coins(amount)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .end_cell(), 64);  ;; mode 64: send remaining balance
+        
+        ;; VULNERABILITY 7: State not updated after refund - double spend possible
+        return ();
+    }
+}
+
+;; VULNERABILITY 8: No get_escrow_details getter - off-chain tooling cannot read state
