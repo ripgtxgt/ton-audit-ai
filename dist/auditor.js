@@ -11,7 +11,7 @@ const client = new openai_1.default({
     baseURL: process.env.CLAUDE_API_BASE || "http://localhost:8317/v1",
     apiKey: process.env.CLAUDE_API_KEY || "claude-max",
 });
-const MODEL = process.env.AUDIT_MODEL || "claude-opus-4-5-20251101";
+const MODEL = process.env.AUDIT_MODEL || "claude-sonnet-4-5-20250929";
 function detectLanguage(code, filename) {
     if (filename?.endsWith(".tact"))
         return "tact";
@@ -71,27 +71,32 @@ Analyze for ALL of the following vulnerability categories:
 - Inefficient cell/slice operations
 - Missing gas fees forwarding
 
-Respond ONLY with valid JSON in this exact schema:
+Respond ONLY with valid, minified JSON (no extra whitespace or newlines outside string values) in this exact schema:
 {
   "overallRisk": "critical|high|medium|low|clean",
-  "summary": "2-3 sentence executive summary of the contract's purpose and security posture",
+  "summary": "2-3 sentence executive summary",
   "score": <integer 0-100, where 100 is perfectly secure>,
   "findings": [
     {
       "severity": "critical|high|medium|low|info",
       "category": "category name",
       "title": "short title",
-      "description": "detailed description of the vulnerability and why it matters",
-      "location": "function name or line reference if identifiable",
-      "recommendation": "specific, actionable fix with code example if applicable",
-      "codeSnippet": "relevant code snippet showing the issue (optional, omit if not helpful)"
+      "description": "detailed description of the vulnerability (plain text, no code blocks)",
+      "location": "function name or line reference",
+      "recommendation": "specific actionable fix (plain text only, no code blocks or backticks)",
+      "codeSnippet": "single short line showing the vulnerable code (optional, max 120 chars, no newlines)"
     }
   ],
-  "gasAnalysis": "Analysis of gas usage patterns, efficiency, and any gas-related risks",
-  "architectureNotes": "Notes on contract architecture, design patterns used, and overall code quality"
+  "gasAnalysis": "plain text gas analysis",
+  "architectureNotes": "plain text architecture notes"
 }
 
-If no findings in a severity level, omit those entries. Order findings by severity (critical first). Keep descriptions concise but complete.`;
+IMPORTANT:
+- All string values must be single-line (no newlines, no backtick code blocks inside JSON strings)
+- Do NOT include code examples with backticks inside JSON string values
+- The entire response must be parseable by JSON.parse() without error
+- Order findings by severity (critical first)
+- Omit codeSnippet if it would be longer than 120 characters`;
 }
 async function auditContract(code, filename, onChunk) {
     const language = detectLanguage(code, filename);
@@ -117,7 +122,33 @@ async function auditContract(code, filename, onChunk) {
     if (!jsonMatch) {
         throw new Error("Failed to parse audit response as JSON. Raw: " + fullResponse.slice(0, 200));
     }
-    const parsed = JSON.parse(jsonMatch[0]);
+    let jsonStr = jsonMatch[0];
+    // Sanitize: replace literal newlines inside JSON string values with \n escape
+    // This handles cases where Claude puts multi-line content inside strings
+    jsonStr = jsonStr.replace(/"(?:[^"\\]|\\.)*"/g, (match) => match.replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/\t/g, "\\t"));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let parsed;
+    try {
+        parsed = JSON.parse(jsonStr);
+    }
+    catch (e) {
+        // Last resort: strip all control characters and retry
+        const cleaned = jsonStr.replace(/[\x00-\x1F\x7F]/g, (c) => {
+            if (c === "\n")
+                return "\\n";
+            if (c === "\r")
+                return "\\r";
+            if (c === "\t")
+                return "\\t";
+            return "";
+        });
+        try {
+            parsed = JSON.parse(cleaned);
+        }
+        catch {
+            throw new Error(`JSON parse failed. First 500 chars: ${fullResponse.slice(0, 500)}`);
+        }
+    }
     const findings = (parsed.findings || []).map((f, i) => ({
         ...f,
         id: `TON-${String(i + 1).padStart(3, "0")}`,
