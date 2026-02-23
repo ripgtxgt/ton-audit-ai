@@ -1,0 +1,29 @@
+# Fly.io deployment config
+app = "ton-audit-ai"
+primary_region = "sin"   # Singapore — closest to TON community
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "3099"
+  AUDIT_MODEL = "claude-opus-4-5-20251101"
+  # ANTHROPIC_API_KEY is set as a secret: fly secrets set ANTHROPIC_API_KEY=sk-ant-...
+
+[http_service]
+  internal_port = 3099
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  # No request timeout — critical for 60-90s Claude analysis
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 10
+    soft_limit = 5
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
