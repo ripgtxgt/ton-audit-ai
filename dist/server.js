@@ -10,6 +10,7 @@ const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const auditor_1 = require("./auditor");
+const pdf_1 = require("./pdf");
 dotenv_1.default.config();
 // Uses local claude-max proxy at http://localhost:8317/v1 (OpenAI-compatible)
 // No API key needed — relies on openclaw gateway auth
@@ -133,6 +134,24 @@ app.post("/api/audit/upload", upload.single("contract"), async (req, res) => {
     }
     finally {
         res.end();
+    }
+});
+// PDF generation endpoint — accepts completed report JSON, returns PDF
+app.post("/api/report/pdf", async (req, res) => {
+    const report = req.body;
+    if (!report?.contractName || !Array.isArray(report?.findings)) {
+        return res.status(400).json({ error: "Invalid report object" });
+    }
+    try {
+        const pdf = await (0, pdf_1.generatePDF)(report);
+        const filename = `tonaudit-${report.contractName.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+        res.setHeader("Content-Length", pdf.length);
+        res.end(pdf);
+    }
+    catch (err) {
+        res.status(500).json({ error: err instanceof Error ? err.message : "PDF generation failed" });
     }
 });
 app.listen(PORT, () => {

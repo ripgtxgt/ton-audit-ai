@@ -5,400 +5,406 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TonAudit AI — TON Smart Contract Security Auditor</title>
 <style>
+/* ── Reset & tokens ───────────────────────────────────────────────────────── */
 :root {
-  --bg: #0a0b0f;
-  --surface: #13151f;
+  --bg:       #0a0b0f;
+  --surface:  #13151f;
   --surface2: #1a1d2e;
-  --border: #252840;
-  --border2: #2e3154;
-  --accent: #4f7fff;
-  --accent2: #7b5ea7;
-  --text: #e4e6f0;
-  --text-muted: #6b7298;
-  --text-dim: #3d4166;
+  --border:   #252840;
+  --border2:  #2e3154;
+  --accent:   #4f7fff;
+  --accent2:  #7b5ea7;
+  --text:     #e4e6f0;
+  --muted:    #6b7298;
+  --dim:      #3d4166;
   --critical: #ff4d6a;
-  --high: #ff7d3b;
-  --medium: #f5c542;
-  --low: #4ade80;
-  --info: #60c4ff;
-  --clean: #4ade80;
-  --radius: 10px;
-  --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --high:     #ff7d3b;
+  --medium:   #f5c542;
+  --low:      #4ade80;
+  --info:     #60c4ff;
+  --r:        10px;
+  --font:     'Inter', system-ui, -apple-system, sans-serif;
+  --mono:     'JetBrains Mono', 'Fira Code', monospace;
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
-
 body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font);
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+  background: var(--bg); color: var(--text);
+  font-family: var(--font); min-height: 100vh;
+  display: flex; flex-direction: column;
+  -webkit-font-smoothing: antialiased;
 }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
 
-/* ── Nav ── */
+/* ── Nav ──────────────────────────────────────────────────────────────────── */
 nav {
-  display: flex; align-items: center; gap: 12px;
-  padding: 16px 32px;
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(10,11,15,.92); backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
-  position: sticky; top: 0; z-index: 10;
-  background: rgba(10,11,15,0.92);
-  backdrop-filter: blur(12px);
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 24px; height: 56px;
 }
-.logo { display: flex; align-items: center; gap: 10px; }
-.logo-icon {
-  width: 36px; height: 36px; border-radius: 8px;
-  background: linear-gradient(135deg, var(--accent), var(--accent2));
+.logo { display: flex; align-items: center; gap: 9px; }
+.logo-mark {
+  width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
   display: flex; align-items: center; justify-content: center;
-  font-size: 18px;
+  font-size: 15px;
 }
-.logo-text { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
-.logo-text span { color: var(--accent); }
+.logo-name { font-size: 15px; font-weight: 700; letter-spacing: -.3px; }
+.logo-name em { color: var(--accent); font-style: normal; }
+.nav-sep { flex: 1; }
+.nav-links { display: flex; align-items: center; gap: 20px; }
+.nav-links a { font-size: 13px; color: var(--muted); transition: color .15s; }
+.nav-links a:hover { color: var(--text); text-decoration: none; }
 .nav-badge {
-  margin-left: auto;
-  font-size: 11px; padding: 3px 10px;
-  background: rgba(79,127,255,0.12); border: 1px solid rgba(79,127,255,0.3);
-  border-radius: 20px; color: var(--accent);
+  font-size: 11px; padding: 3px 9px; border-radius: 20px;
+  background: rgba(79,127,255,.12); border: 1px solid rgba(79,127,255,.3);
+  color: var(--accent); white-space: nowrap;
 }
-.nav-links { display: flex; gap: 20px; }
-.nav-links a { font-size: 13px; color: var(--text-muted); text-decoration: none; transition: color .15s; }
-.nav-links a:hover { color: var(--text); }
 
-/* ── Hero ── */
+/* ── Hero ─────────────────────────────────────────────────────────────────── */
 .hero {
-  text-align: center;
-  padding: 60px 24px 40px;
-  background: radial-gradient(ellipse 800px 400px at 50% -100px, rgba(79,127,255,0.07) 0%, transparent 70%);
+  text-align: center; padding: 64px 24px 48px;
+  background: radial-gradient(ellipse 900px 360px at 50% 0, rgba(79,127,255,.07) 0%, transparent 70%);
 }
-.hero-tag {
-  display: inline-block; font-size: 12px; letter-spacing: .08em;
-  padding: 4px 12px; border-radius: 20px; margin-bottom: 20px;
-  background: rgba(79,127,255,0.1); border: 1px solid rgba(79,127,255,0.25);
-  color: var(--accent); text-transform: uppercase;
+.hero-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; letter-spacing: .07em; text-transform: uppercase;
+  padding: 4px 12px; border-radius: 20px; margin-bottom: 24px;
+  background: rgba(79,127,255,.1); border: 1px solid rgba(79,127,255,.25); color: var(--accent);
 }
 .hero h1 {
-  font-size: clamp(28px, 5vw, 48px);
-  font-weight: 800; letter-spacing: -1px;
-  line-height: 1.15; margin-bottom: 16px;
+  font-size: clamp(26px, 5vw, 46px); font-weight: 800; letter-spacing: -.8px;
+  line-height: 1.13; margin-bottom: 18px;
 }
 .hero h1 .grad {
-  background: linear-gradient(135deg, var(--accent), #a78fff);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
+  background: linear-gradient(135deg, var(--accent) 0%, #a78fff 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
-.hero p {
-  font-size: 16px; color: var(--text-muted);
-  max-width: 560px; margin: 0 auto 32px; line-height: 1.7;
+.hero p { font-size: 15px; color: var(--muted); max-width: 520px; margin: 0 auto 36px; line-height: 1.75; }
+.hero-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 44px; }
+.chip {
+  font-size: 12px; padding: 5px 13px; border-radius: 20px;
+  background: var(--surface); border: 1px solid var(--border); color: var(--muted);
 }
-.hero-stats {
-  display: flex; gap: 32px; justify-content: center;
-  flex-wrap: wrap; margin-bottom: 40px;
-}
-.stat { text-align: center; }
-.stat-value { font-size: 24px; font-weight: 700; color: var(--accent); }
-.stat-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 
-/* ── Main layout ── */
-.main { display: flex; gap: 0; flex: 1; max-width: 1400px; margin: 0 auto; width: 100%; }
+/* ── Workspace ────────────────────────────────────────────────────────────── */
+.workspace {
+  flex: 1; display: grid;
+  grid-template-columns: 220px 1fr 440px;
+  max-width: 1380px; width: 100%; margin: 0 auto;
+  border-top: 1px solid var(--border);
+}
 
-/* ── Sidebar ── */
+/* ── Sidebar ──────────────────────────────────────────────────────────────── */
 .sidebar {
-  width: 280px; flex-shrink: 0;
   border-right: 1px solid var(--border);
-  padding: 24px 16px;
-  position: sticky; top: 69px;
-  height: calc(100vh - 69px);
-  overflow-y: auto;
+  padding: 20px 14px;
+  position: sticky; top: 56px;
+  height: calc(100vh - 56px); overflow-y: auto;
 }
-.sidebar-section { margin-bottom: 24px; }
-.sidebar-title {
-  font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
-  color: var(--text-dim); margin-bottom: 10px; padding: 0 8px;
+.sidebar::-webkit-scrollbar { width: 3px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+.sb-section { margin-bottom: 24px; }
+.sb-title {
+  font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--dim); padding: 0 8px; margin-bottom: 8px;
 }
-.sample-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 10px; border-radius: 6px;
-  cursor: pointer; transition: background .15s;
-  font-size: 13px; color: var(--text-muted);
+.sample-btn {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  padding: 7px 8px; border-radius: 6px; cursor: pointer; border: none; background: none;
+  text-align: left; transition: background .13s; color: var(--muted); font-size: 12px;
+  font-family: var(--font);
 }
-.sample-item:hover { background: var(--surface2); color: var(--text); }
-.sample-item.active { background: rgba(79,127,255,0.12); color: var(--accent); }
-.sample-icon { font-size: 14px; flex-shrink: 0; }
-.sample-info { flex: 1; min-width: 0; }
-.sample-name { font-weight: 500; truncate: ellipsis; overflow: hidden; white-space: nowrap; }
-.sample-lines { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+.sample-btn:hover { background: var(--surface2); color: var(--text); }
+.sample-btn.active { background: rgba(79,127,255,.12); color: var(--accent); }
+.sample-ic { font-size: 13px; flex-shrink: 0; }
+.sample-meta { flex: 1; min-width: 0; }
+.sample-name { font-weight: 500; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.sample-loc { font-size: 10px; color: var(--dim); margin-top: 1px; }
+.cov-list { padding: 0 8px; }
+.cov-item { font-size: 11px; color: var(--muted); line-height: 2; }
+.cov-item::before { content: "✓ "; color: var(--low); }
 
-/* ── Editor pane ── */
+/* ── Editor pane ──────────────────────────────────────────────────────────── */
 .editor-pane {
-  flex: 1; padding: 24px 28px;
-  min-width: 0;
   border-right: 1px solid var(--border);
+  padding: 24px 28px; display: flex; flex-direction: column; gap: 14px;
 }
-.pane-header {
-  display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
-}
+.pane-header { display: flex; align-items: center; gap: 10px; }
 .pane-title { font-size: 14px; font-weight: 600; }
-.pane-subtitle { font-size: 12px; color: var(--text-muted); margin-left: auto; }
-
-.editor-tabs {
-  display: flex; gap: 4px; margin-bottom: 12px;
-  background: var(--surface); border-radius: 8px; padding: 4px;
-  width: fit-content;
+.pane-sub { font-size: 12px; color: var(--muted); margin-left: auto; }
+.tabs {
+  display: flex; gap: 3px;
+  background: var(--surface); border-radius: 8px; padding: 3px; width: fit-content;
 }
-.tab {
-  padding: 6px 14px; border-radius: 6px; font-size: 13px;
-  cursor: pointer; transition: all .15s;
-  color: var(--text-muted); border: none; background: none;
+.tab-btn {
+  padding: 5px 14px; border-radius: 6px; font-size: 12px;
+  cursor: pointer; transition: all .13s; color: var(--muted);
+  border: none; background: none; font-family: var(--font);
 }
-.tab.active { background: var(--surface2); color: var(--text); }
+.tab-btn.active { background: var(--surface2); color: var(--text); }
 
-.drop-zone {
-  border: 2px dashed var(--border2); border-radius: var(--radius);
-  padding: 32px; text-align: center; cursor: pointer;
-  transition: all .15s; margin-bottom: 12px;
-  display: none;
-}
-.drop-zone.active { display: block; }
-.drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: rgba(79,127,255,0.05); }
-.drop-icon { font-size: 32px; margin-bottom: 8px; }
-.drop-text { font-size: 14px; color: var(--text-muted); }
-.drop-sub { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
-
+/* Code textarea */
 #code-input {
-  width: 100%; height: 380px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); color: var(--text);
-  font-family: var(--mono); font-size: 13px; line-height: 1.6;
-  padding: 16px; resize: vertical; outline: none; transition: border-color .15s;
-  display: block;
-}
-#code-input:focus { border-color: var(--accent); }
-#code-input::placeholder { color: var(--text-dim); }
-
-.file-info {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 12px; color: var(--text-muted); margin-top: 8px;
-  padding: 8px 12px; background: var(--surface); border-radius: 6px;
-  display: none;
-}
-.file-info.visible { display: flex; }
-
-.audit-btn {
-  width: 100%; margin-top: 16px;
-  padding: 14px; border-radius: var(--radius); border: none;
-  background: linear-gradient(135deg, var(--accent), #6a5acd);
-  color: white; font-size: 15px; font-weight: 600;
-  cursor: pointer; transition: all .2s; letter-spacing: .01em;
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-}
-.audit-btn:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(79,127,255,0.3); }
-.audit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
-.audit-btn .spinner {
-  width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3);
-  border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite;
-  display: none;
-}
-.audit-btn.loading .spinner { display: block; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.status-bar {
-  margin-top: 12px; padding: 10px 14px; border-radius: 6px;
-  background: var(--surface); font-size: 13px; color: var(--text-muted);
-  display: none; align-items: center; gap: 8px;
-}
-.status-bar.visible { display: flex; }
-.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1s infinite; }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
-/* ── Report pane ── */
-.report-pane {
-  width: 460px; flex-shrink: 0;
-  padding: 24px 24px;
-  overflow-y: auto;
-}
-
-.report-empty {
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: center; height: 100%; text-align: center;
-  color: var(--text-dim); padding: 40px;
-}
-.report-empty-icon { font-size: 48px; margin-bottom: 16px; }
-.report-empty p { font-size: 14px; line-height: 1.6; }
-
-/* Score ring */
-.score-widget {
-  display: flex; align-items: center; gap: 20px;
-  padding: 20px; background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); margin-bottom: 16px;
-}
-.score-ring-wrap { position: relative; flex-shrink: 0; }
-.score-ring { transform: rotate(-90deg); }
-.score-value {
-  position: absolute; top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 22px; font-weight: 800;
-}
-.score-info h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
-.score-info p { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
-
-.risk-badge {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .05em;
-}
-.risk-critical { background: rgba(255,77,106,0.15); color: var(--critical); border: 1px solid rgba(255,77,106,0.3); }
-.risk-high { background: rgba(255,125,59,0.15); color: var(--high); border: 1px solid rgba(255,125,59,0.3); }
-.risk-medium { background: rgba(245,197,66,0.15); color: var(--medium); border: 1px solid rgba(245,197,66,0.3); }
-.risk-low { background: rgba(74,222,128,0.15); color: var(--low); border: 1px solid rgba(74,222,128,0.3); }
-.risk-clean { background: rgba(74,222,128,0.15); color: var(--clean); border: 1px solid rgba(74,222,128,0.3); }
-
-/* Report meta */
-.report-meta {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 8px; margin-bottom: 16px;
-}
-.meta-card {
-  padding: 12px; background: var(--surface); border: 1px solid var(--border);
-  border-radius: 8px;
-}
-.meta-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .05em; }
-.meta-value { font-size: 14px; font-weight: 600; margin-top: 3px; }
-
-/* Findings */
-.section-header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin: 20px 0 12px;
-}
-.section-title { font-size: 14px; font-weight: 600; }
-.findings-count {
-  font-size: 12px; color: var(--text-muted);
-  padding: 2px 8px; background: var(--surface); border-radius: 20px;
-}
-
-.finding-card {
-  border: 1px solid var(--border); border-radius: var(--radius);
-  margin-bottom: 10px; overflow: hidden;
+  flex: 1; min-height: 340px; max-height: 480px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+  color: var(--text); font-family: var(--mono); font-size: 12.5px; line-height: 1.65;
+  padding: 14px 16px; resize: vertical; outline: none; tab-size: 2;
   transition: border-color .15s;
 }
-.finding-card:hover { border-color: var(--border2); }
-.finding-header {
-  padding: 12px 14px; cursor: pointer;
-  display: flex; align-items: center; gap: 10px;
-  background: var(--surface);
-}
-.severity-dot {
-  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
-}
-.sev-critical { background: var(--critical); box-shadow: 0 0 6px var(--critical); }
-.sev-high { background: var(--high); box-shadow: 0 0 6px var(--high); }
-.sev-medium { background: var(--medium); }
-.sev-low { background: var(--low); }
-.sev-info { background: var(--info); }
+#code-input:focus { border-color: var(--accent); }
+#code-input::placeholder { color: var(--dim); }
 
-.finding-title { font-size: 13px; font-weight: 600; flex: 1; }
-.finding-id { font-size: 11px; color: var(--text-dim); font-family: var(--mono); }
-.finding-chevron { color: var(--text-dim); font-size: 10px; transition: transform .2s; }
-.finding-card.open .finding-chevron { transform: rotate(180deg); }
+/* Drop zone */
+.drop-zone {
+  border: 2px dashed var(--border2); border-radius: var(--r);
+  padding: 40px 24px; text-align: center; cursor: pointer;
+  transition: all .15s; display: none;
+}
+.drop-zone.show { display: block; }
+.drop-zone:hover, .drop-zone.drag { border-color: var(--accent); background: rgba(79,127,255,.05); }
+.drop-icon { font-size: 36px; margin-bottom: 10px; }
+.drop-text { font-size: 14px; color: var(--muted); }
+.drop-sub { font-size: 11px; color: var(--dim); margin-top: 4px; }
+#file-input { display: none; }
+
+/* File chip */
+.file-chip {
+  display: none; align-items: center; gap: 8px;
+  padding: 7px 12px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; font-size: 12px; color: var(--muted);
+}
+.file-chip.show { display: flex; }
+.file-chip-x { margin-left: auto; cursor: pointer; color: var(--dim); transition: color .13s; }
+.file-chip-x:hover { color: var(--critical); }
+
+/* Audit button */
+.audit-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 13px; border-radius: var(--r); border: none; cursor: pointer;
+  background: linear-gradient(135deg, var(--accent) 0%, #6a5acd 100%);
+  color: #fff; font-size: 14px; font-weight: 600; letter-spacing: .01em;
+  transition: opacity .2s, transform .15s, box-shadow .2s;
+  font-family: var(--font);
+}
+.audit-btn:hover:not(:disabled) {
+  opacity: .9; transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(79,127,255,.35);
+}
+.audit-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
+.spin {
+  width: 15px; height: 15px;
+  border: 2px solid rgba(255,255,255,.35); border-top-color: #fff;
+  border-radius: 50%; animation: spin .75s linear infinite; display: none;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.audit-btn.busy .spin { display: block; }
+
+/* Status bar */
+.status-bar {
+  display: none; align-items: center; gap: 8px;
+  padding: 9px 13px; background: var(--surface); border-radius: 6px;
+  font-size: 12px; color: var(--muted);
+}
+.status-bar.show { display: flex; }
+.pulse {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0;
+  animation: pulse 1.1s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+/* ── Report pane ──────────────────────────────────────────────────────────── */
+.report-pane {
+  padding: 24px 22px; overflow-y: auto;
+  position: sticky; top: 56px; height: calc(100vh - 56px);
+}
+.report-pane::-webkit-scrollbar { width: 3px; }
+.report-pane::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+.rp-empty {
+  height: 100%; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center; gap: 12px;
+  color: var(--dim); padding: 32px;
+}
+.rp-empty-icon { font-size: 52px; opacity: .5; }
+.rp-empty p { font-size: 13px; line-height: 1.7; max-width: 260px; }
+
+/* Score card */
+.score-card {
+  display: flex; align-items: center; gap: 18px;
+  padding: 18px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); margin-bottom: 14px;
+}
+.ring-wrap { position: relative; flex-shrink: 0; }
+.ring-num {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  font-size: 20px; font-weight: 800;
+}
+.score-info h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+.score-info p { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+/* Risk badge */
+.risk-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 20px;
+  font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+}
+.r-critical { background: rgba(255,77,106,.14); color: var(--critical); border: 1px solid rgba(255,77,106,.3); }
+.r-high     { background: rgba(255,125,59,.14);  color: var(--high);     border: 1px solid rgba(255,125,59,.3); }
+.r-medium   { background: rgba(245,197,66,.14);  color: var(--medium);   border: 1px solid rgba(245,197,66,.3); }
+.r-low, .r-clean { background: rgba(74,222,128,.14); color: var(--low);  border: 1px solid rgba(74,222,128,.3); }
+
+/* Meta grid */
+.meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.meta-card { padding: 11px 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+.meta-lbl { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; }
+.meta-val { font-size: 13px; font-weight: 600; margin-top: 3px; }
+
+/* PDF / export button */
+.export-btn {
+  width: 100%; display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 10px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--muted); font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all .15s; margin-bottom: 16px; font-family: var(--font);
+}
+.export-btn:hover { border-color: var(--accent); color: var(--text); }
+
+/* Section headers */
+.sec-hdr { display: flex; align-items: center; justify-content: space-between; margin: 18px 0 10px; }
+.sec-title { font-size: 13px; font-weight: 600; }
+.sec-count { font-size: 11px; color: var(--muted); padding: 2px 8px; background: var(--surface); border-radius: 20px; }
+
+/* Finding cards */
+.finding {
+  border: 1px solid var(--border); border-radius: var(--r);
+  margin-bottom: 8px; overflow: hidden;
+}
+.finding-hdr {
+  padding: 11px 13px; display: flex; align-items: center; gap: 9px;
+  background: var(--surface); cursor: pointer; user-select: none;
+  transition: background .13s;
+}
+.finding-hdr:hover { background: var(--surface2); }
+.sev-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.d-critical { background: var(--critical); box-shadow: 0 0 7px var(--critical); }
+.d-high     { background: var(--high);     box-shadow: 0 0 7px var(--high); }
+.d-medium   { background: var(--medium); }
+.d-low      { background: var(--low); }
+.d-info     { background: var(--info); }
+.finding-title { font-size: 12.5px; font-weight: 600; flex: 1; line-height: 1.35; }
+.finding-id { font-size: 10px; color: var(--dim); font-family: var(--mono); flex-shrink: 0; }
+.finding-chev { font-size: 9px; color: var(--dim); flex-shrink: 0; transition: transform .2s; }
+.finding.open .finding-chev { transform: rotate(180deg); }
 
 .finding-body {
-  display: none; padding: 14px; border-top: 1px solid var(--border);
-  background: var(--surface2);
+  display: none; padding: 13px 14px; border-top: 1px solid var(--border);
+  background: var(--surface2); font-size: 12px; line-height: 1.65;
 }
-.finding-card.open .finding-body { display: block; }
-
-.finding-row { margin-bottom: 10px; }
-.finding-row-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
-.finding-row-value { font-size: 13px; line-height: 1.6; color: var(--text-muted); }
-.finding-row.rec .finding-row-value { color: var(--low); }
-
-.code-block {
-  background: var(--bg); border: 1px solid var(--border);
-  border-radius: 6px; padding: 10px 12px;
-  font-family: var(--mono); font-size: 12px; line-height: 1.6;
-  color: #a8b4ff; white-space: pre-wrap; word-break: break-all;
-  margin-top: 4px; overflow-x: auto;
+.finding.open .finding-body { display: block; }
+.fb-row { margin-bottom: 9px; }
+.fb-lbl { font-size: 9px; color: var(--dim); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 3px; }
+.fb-val { color: var(--muted); }
+.fb-loc { color: var(--info); font-family: var(--mono); font-size: 11px; }
+.fb-rec { color: var(--low); }
+.code-snip {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+  padding: 8px 10px; font-family: var(--mono); font-size: 11px; color: #a8b4ff;
+  white-space: pre-wrap; word-break: break-all; margin-top: 3px;
+  overflow-x: auto;
 }
 
-/* Analysis sections */
+/* Analysis cards */
 .analysis-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 14px; margin-bottom: 10px;
+  border-radius: var(--r); padding: 13px; margin-bottom: 8px;
 }
-.analysis-card h4 { font-size: 13px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
-.analysis-card p { font-size: 13px; color: var(--text-muted); line-height: 1.7; }
+.analysis-card h4 { font-size: 12px; font-weight: 600; margin-bottom: 7px; display: flex; align-items: center; gap: 6px; }
+.analysis-card p { font-size: 12px; color: var(--muted); line-height: 1.7; }
 
-/* ── Footer ── */
+/* ── Footer ───────────────────────────────────────────────────────────────── */
 footer {
-  border-top: 1px solid var(--border); padding: 20px 32px;
-  text-align: center; font-size: 12px; color: var(--text-dim);
+  border-top: 1px solid var(--border);
+  padding: 18px 24px; text-align: center;
+  font-size: 11px; color: var(--dim);
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px;
 }
-footer a { color: var(--text-muted); text-decoration: none; }
-footer a:hover { color: var(--text); }
+.ft-sep { color: var(--border2); }
 
-/* Responsive */
+/* ── Responsive ───────────────────────────────────────────────────────────── */
 @media (max-width: 1100px) {
-  .report-pane { width: 380px; }
-  .sidebar { width: 220px; }
-}
-@media (max-width: 800px) {
+  .workspace { grid-template-columns: 0 1fr 380px; }
   .sidebar { display: none; }
-  .main { flex-direction: column; }
-  .editor-pane, .report-pane { width: 100%; border: none; }
+}
+@media (max-width: 720px) {
+  .workspace { grid-template-columns: 1fr; display: flex; flex-direction: column; }
+  .editor-pane { border-right: none; border-bottom: 1px solid var(--border); }
+  .report-pane { position: static; height: auto; }
+  .nav-links { display: none; }
 }
 </style>
 </head>
 <body>
 
+<!-- ── Nav ───────────────────────────────────────────────────────────────── -->
 <nav>
   <div class="logo">
-    <div class="logo-icon">🔐</div>
-    <div class="logo-text">Ton<span>Audit</span> AI</div>
+    <div class="logo-mark">🔐</div>
+    <span class="logo-name">Ton<em>Audit</em> AI</span>
   </div>
+  <div class="nav-sep"></div>
   <div class="nav-links">
-    <a href="#" onclick="scrollToEditor()">Audit</a>
-    <a href="https://github.com/ripgtxgt" target="_blank">GitHub</a>
+    <a href="#workspace">Audit</a>
+    <a href="https://github.com/ripgtxgt/ton-audit-ai" target="_blank" rel="noopener">GitHub ↗</a>
+    <a href="https://ton.org" target="_blank" rel="noopener">TON ↗</a>
   </div>
-  <div class="nav-badge">Powered by Claude</div>
+  <span class="nav-badge">Claude Opus · TokenTon26</span>
 </nav>
 
-<div class="hero">
-  <div class="hero-tag">TON Blockchain Security</div>
-  <h1>AI-Powered <span class="grad">Smart Contract</span><br>Security Auditor</h1>
-  <p>Instantly audit FunC and Tact contracts for vulnerabilities, gas inefficiencies, and standard deviations. Powered by Claude AI.</p>
-  <div class="hero-stats">
-    <div class="stat"><div class="stat-value">15+</div><div class="stat-label">Vulnerability Categories</div></div>
-    <div class="stat"><div class="stat-value">FunC & Tact</div><div class="stat-label">Languages Supported</div></div>
-    <div class="stat"><div class="stat-value">&lt;30s</div><div class="stat-label">Audit Time</div></div>
-    <div class="stat"><div class="stat-value">Claude Opus</div><div class="stat-label">AI Model</div></div>
+<!-- ── Hero ──────────────────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-pill">
+    <span>⚡</span> TON Blockchain Security · AI-Powered
   </div>
-</div>
+  <h1>Smart Contract<br><span class="grad">Security Auditor</span></h1>
+  <p>
+    Paste your FunC or Tact contract. Get a structured security report covering
+    15+ vulnerability categories — specific to TON's async message model and TVM.
+  </p>
+  <div class="hero-chips">
+    <span class="chip">FunC &amp; Tact</span>
+    <span class="chip">15+ Vuln Categories</span>
+    <span class="chip">Bounce Handler Checks</span>
+    <span class="chip">TEP-74 / TEP-62 Compliance</span>
+    <span class="chip">Gas Analysis</span>
+    <span class="chip">&lt; 30s Audit Time</span>
+  </div>
+</section>
 
-<div class="main" id="editor-section">
+<!-- ── Workspace ─────────────────────────────────────────────────────────── -->
+<div class="workspace" id="workspace">
+
   <!-- Sidebar -->
   <aside class="sidebar">
-    <div class="sidebar-section">
-      <div class="sidebar-title">Sample Contracts</div>
-      <div id="sample-list">
-        <div style="font-size:12px;color:var(--text-dim);padding:8px">Loading...</div>
-      </div>
+    <div class="sb-section">
+      <div class="sb-title">Sample Contracts</div>
+      <div id="sample-list"><div style="font-size:11px;color:var(--dim);padding:8px">Loading…</div></div>
     </div>
-    <div class="sidebar-section">
-      <div class="sidebar-title">Vulnerability Coverage</div>
-      <div style="padding: 0 8px;">
-        <div style="font-size:12px;color:var(--text-muted);line-height:2;">
-          ✓ Reentrancy via messages<br>
-          ✓ Bounce handler validation<br>
-          ✓ Access control<br>
-          ✓ Integer overflow<br>
-          ✓ Storage exhaustion<br>
-          ✓ Gas griefing<br>
-          ✓ TEP-74 Jetton compliance<br>
-          ✓ TEP-62 NFT compliance<br>
-          ✓ DNS rebinding (TVM)<br>
-          ✓ Replay attacks
-        </div>
+    <div class="sb-section">
+      <div class="sb-title">Vulnerability Coverage</div>
+      <div class="cov-list">
+        <div class="cov-item">Reentrancy (async chains)</div>
+        <div class="cov-item">Bounce handler missing</div>
+        <div class="cov-item">Sender / access control</div>
+        <div class="cov-item">Integer overflow</div>
+        <div class="cov-item">Storage exhaustion</div>
+        <div class="cov-item">Gas griefing</div>
+        <div class="cov-item">TEP-74 Jetton compliance</div>
+        <div class="cov-item">TEP-62 NFT compliance</div>
+        <div class="cov-item">Send mode errors</div>
+        <div class="cov-item">State management</div>
       </div>
     </div>
   </aside>
@@ -406,169 +412,159 @@ footer a:hover { color: var(--text); }
   <!-- Editor -->
   <div class="editor-pane">
     <div class="pane-header">
-      <div class="pane-title">Contract Input</div>
-      <div class="pane-subtitle">FunC (.fc) or Tact (.tact)</div>
+      <span class="pane-title">Contract Input</span>
+      <span class="pane-sub">FunC (.fc) or Tact (.tact)</span>
     </div>
 
-    <div class="editor-tabs">
-      <button class="tab active" onclick="switchTab('paste')">📝 Paste Code</button>
-      <button class="tab" onclick="switchTab('upload')">📁 Upload File</button>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="setTab('paste')">📝 Paste Code</button>
+      <button class="tab-btn"        onclick="setTab('upload')">📁 Upload File</button>
     </div>
 
     <textarea id="code-input"
-      placeholder=";; Paste your FunC or Tact contract here...
+      spellcheck="false" autocomplete="off"
+      placeholder=";; Paste your FunC or Tact contract here…
+;;
 ;; Example:
 () recv_internal(int msg_value, cell in_msg_full, slice in_msg_body) impure {
-  ;; Your contract logic
-}"
-    ></textarea>
+    ;; contract logic
+}"></textarea>
 
-    <div class="drop-zone" id="drop-zone" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)" onclick="triggerFileInput()">
+    <div class="drop-zone" id="drop-zone"
+         ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event)"
+         onclick="document.getElementById('file-input').click()">
       <div class="drop-icon">📄</div>
-      <div class="drop-text">Drop your .fc or .tact file here</div>
+      <div class="drop-text">Drop .fc or .tact file here</div>
       <div class="drop-sub">or click to browse</div>
     </div>
-    <input type="file" id="file-input" accept=".fc,.func,.tact" style="display:none" onchange="onFileSelect(event)">
+    <input type="file" id="file-input" accept=".fc,.func,.tact" onchange="fileSelected(event)">
 
-    <div class="file-info" id="file-info">
+    <div class="file-chip" id="file-chip">
       <span>📄</span>
-      <span id="file-name-display">—</span>
-      <span style="margin-left:auto;cursor:pointer;color:var(--text-dim)" onclick="clearFile()">✕</span>
+      <span id="file-chip-name">—</span>
+      <span class="file-chip-x" onclick="clearFile()">✕</span>
     </div>
 
     <button class="audit-btn" id="audit-btn" onclick="runAudit()">
-      <div class="spinner"></div>
-      <span class="btn-text">🔍 Run Security Audit</span>
+      <div class="spin"></div>
+      <span id="btn-txt">🔍 Run Security Audit</span>
     </button>
 
     <div class="status-bar" id="status-bar">
-      <div class="status-dot"></div>
-      <span id="status-text">Initializing...</span>
+      <div class="pulse"></div>
+      <span id="status-txt">Initializing…</span>
     </div>
   </div>
 
   <!-- Report -->
-  <div class="report-pane" id="report-pane">
-    <div class="report-empty" id="report-empty">
-      <div class="report-empty-icon">🛡️</div>
-      <p>Paste a FunC or Tact contract and click <strong>Run Security Audit</strong> to get a detailed security report.</p>
+  <div class="report-pane">
+    <div class="rp-empty" id="rp-empty">
+      <div class="rp-empty-icon">🛡️</div>
+      <p>Paste a FunC or Tact contract on the left, then click <strong>Run Security Audit</strong>.</p>
+      <p style="font-size:11px;opacity:.6;margin-top:8px">Powered by Claude Opus · Built for TokenTon26</p>
     </div>
-    <div id="report-content" style="display:none"></div>
+    <div id="rp-content" style="display:none"></div>
   </div>
+
 </div>
 
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
 <footer>
-  TonAudit AI — Built for TokenTon26 Hackathon ·
-  <a href="https://github.com/ripgtxgt" target="_blank">github.com/ripgtxgt</a> ·
-  Powered by Anthropic Claude
+  <span>🔐 TonAudit AI</span>
+  <span class="ft-sep">·</span>
+  <a href="https://github.com/ripgtxgt/ton-audit-ai" target="_blank" rel="noopener">github.com/ripgtxgt/ton-audit-ai</a>
+  <span class="ft-sep">·</span>
+  <span>Built for <strong>TokenTon26 Hackathon</strong></span>
+  <span class="ft-sep">·</span>
+  <span>Powered by Anthropic Claude</span>
 </footer>
 
 <script>
+/* ── Globals ─────────────────────────────────────────────────────────────── */
 let currentFile = null;
-let currentTab = 'paste';
+let lastReport  = null;
+let tab = 'paste';
 
-function scrollToEditor() {
-  document.getElementById('editor-section').scrollIntoView({ behavior: 'smooth' });
-}
-
-// ── Sample loading ────────────────────────────────────────────────────────────
+/* ── Samples ─────────────────────────────────────────────────────────────── */
 async function loadSamples() {
   try {
-    const res = await fetch('/api/samples');
-    const { samples } = await res.json();
-    const list = document.getElementById('sample-list');
-    if (!samples.length) { list.innerHTML = '<div style="font-size:12px;color:var(--text-dim);padding:8px">No samples available</div>'; return; }
-    list.innerHTML = samples.map(s => `
-      <div class="sample-item" onclick="loadSample('${s.name}')" id="sample-${s.name}">
-        <span class="sample-icon">${s.name.endsWith('.tact') ? '🟣' : '🔵'}</span>
-        <div class="sample-info">
-          <div class="sample-name">${s.name}</div>
-          <div class="sample-lines">${s.lines} lines</div>
-        </div>
-      </div>`).join('');
-  } catch(e) { /* silently fail */ }
+    const r = await fetch('/api/samples');
+    const { samples } = await r.json();
+    const el = document.getElementById('sample-list');
+    if (!samples?.length) { el.innerHTML = '<div style="font-size:11px;color:var(--dim);padding:8px">None</div>'; return; }
+    el.innerHTML = samples.map(s => `
+      <button class="sample-btn" id="sbtn-${s.name}" onclick="loadSample('${s.name}')">
+        <span class="sample-ic">${s.name.endsWith('.tact') ? '🟣' : '🔵'}</span>
+        <span class="sample-meta">
+          <span class="sample-name">${s.name}</span>
+          <span class="sample-loc">${s.lines} lines</span>
+        </span>
+      </button>`).join('');
+  } catch {}
 }
 
 async function loadSample(name) {
-  document.querySelectorAll('.sample-item').forEach(el => el.classList.remove('active'));
-  document.getElementById('sample-' + name)?.classList.add('active');
+  document.querySelectorAll('.sample-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sbtn-' + name)?.classList.add('active');
   try {
-    const res = await fetch('/api/samples/' + name);
-    const { code } = await res.json();
-    switchTab('paste');
+    const r = await fetch('/api/samples/' + name);
+    const { code } = await r.json();
+    setTab('paste');
     document.getElementById('code-input').value = code;
-    document.getElementById('file-name-display').textContent = name;
-    document.getElementById('file-info').classList.add('visible');
+    showFileChip(name);
     currentFile = { name };
-  } catch(e) {}
+  } catch {}
 }
 
-// ── Tab switching ─────────────────────────────────────────────────────────────
-function switchTab(tab) {
-  currentTab = tab;
-  document.querySelectorAll('.tab').forEach((el, i) => {
-    el.classList.toggle('active', (i === 0 && tab === 'paste') || (i === 1 && tab === 'upload'));
-  });
-  document.getElementById('code-input').style.display = tab === 'paste' ? 'block' : 'none';
-  document.getElementById('drop-zone').classList.toggle('active', tab === 'upload');
+/* ── Tab ─────────────────────────────────────────────────────────────────── */
+function setTab(t) {
+  tab = t;
+  document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === (t === 'paste' ? 0 : 1)));
+  document.getElementById('code-input').style.display = t === 'paste' ? 'block' : 'none';
+  const dz = document.getElementById('drop-zone');
+  if (t === 'upload') dz.classList.add('show'); else dz.classList.remove('show');
 }
 
-// ── File handling ─────────────────────────────────────────────────────────────
-function triggerFileInput() { document.getElementById('file-input').click(); }
-
-function onFileSelect(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  handleFile(file);
+/* ── File ────────────────────────────────────────────────────────────────── */
+function showFileChip(name) {
+  document.getElementById('file-chip-name').textContent = name;
+  document.getElementById('file-chip').classList.add('show');
 }
-
-function handleFile(file) {
-  currentFile = file;
-  document.getElementById('file-name-display').textContent = file.name;
-  document.getElementById('file-info').classList.add('visible');
-  // Read into textarea too
-  const reader = new FileReader();
-  reader.onload = e => {
-    document.getElementById('code-input').value = e.target.result;
-    switchTab('paste');
-  };
-  reader.readAsText(file);
-}
-
 function clearFile() {
   currentFile = null;
-  document.getElementById('file-info').classList.remove('visible');
+  document.getElementById('file-chip').classList.remove('show');
   document.getElementById('file-input').value = '';
-  document.querySelectorAll('.sample-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.sample-btn').forEach(b => b.classList.remove('active'));
 }
-
-function onDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('dragover'); }
-function onDragLeave(e) { e.currentTarget.classList.remove('dragover'); }
-function onDrop(e) {
-  e.preventDefault(); e.currentTarget.classList.remove('dragover');
-  const file = e.dataTransfer.files[0];
-  if (file) handleFile(file);
+function handleFile(file) {
+  currentFile = file;
+  showFileChip(file.name);
+  const fr = new FileReader();
+  fr.onload = e => { document.getElementById('code-input').value = e.target.result; setTab('paste'); };
+  fr.readAsText(file);
 }
+function fileSelected(e) { if (e.target.files[0]) handleFile(e.target.files[0]); }
+function dragOver(e)  { e.preventDefault(); e.currentTarget.classList.add('drag'); }
+function dragLeave(e) { e.currentTarget.classList.remove('drag'); }
+function drop(e)      { e.preventDefault(); e.currentTarget.classList.remove('drag'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }
 
-// ── Audit ─────────────────────────────────────────────────────────────────────
+/* ── Audit ───────────────────────────────────────────────────────────────── */
 async function runAudit() {
   const code = document.getElementById('code-input').value.trim();
-  if (!code) { alert('Please paste or upload a contract first'); return; }
+  if (!code) { alert('Paste or upload a contract first.'); return; }
 
   const btn = document.getElementById('audit-btn');
-  btn.disabled = true;
-  btn.classList.add('loading');
-  btn.querySelector('.btn-text').textContent = 'Analyzing...';
-
   const statusBar = document.getElementById('status-bar');
-  const statusText = document.getElementById('status-text');
-  statusBar.classList.add('visible');
-  statusText.textContent = '🔍 Sending contract to Claude...';
+  btn.disabled = true; btn.classList.add('busy');
+  document.getElementById('btn-txt').textContent = 'Analyzing…';
+  statusBar.classList.add('show');
+  setStatus('🔍 Sending to Claude…');
 
-  document.getElementById('report-empty').style.display = 'none';
-  document.getElementById('report-content').style.display = 'none';
+  document.getElementById('rp-empty').style.display = 'none';
+  document.getElementById('rp-content').style.display = 'none';
+  lastReport = null;
 
-  const filename = currentFile?.name || 'contract.fc';
+  const filename = currentFile?.name ?? 'contract.fc';
 
   try {
     const res = await fetch('/api/audit', {
@@ -578,182 +574,177 @@ async function runAudit() {
     });
 
     const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
+    const dec = new TextDecoder();
+    let buf = '';
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
-
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
       for (const line of lines) {
-        if (line.startsWith('event: status')) continue;
-        if (line.startsWith('event: progress')) continue;
-        if (line.startsWith('data: ')) {
-          const data = JSON.parse(line.slice(6));
-          if (data.message) { statusText.textContent = data.message; }
-          if (data.contractName) {
-            // This is the report
-            renderReport(data);
-          }
-        }
+        if (!line.startsWith('data: ')) continue;
+        const d = JSON.parse(line.slice(6));
+        if (d.message) setStatus(d.message);
+        if (d.contractName) { lastReport = d; renderReport(d); }
       }
     }
-  } catch(e) {
-    statusText.textContent = '❌ Error: ' + e.message;
+  } catch (err) {
+    setStatus('❌ ' + err.message);
   } finally {
-    btn.disabled = false;
-    btn.classList.remove('loading');
-    btn.querySelector('.btn-text').textContent = '🔍 Run Security Audit';
-    setTimeout(() => statusBar.classList.remove('visible'), 3000);
+    btn.disabled = false; btn.classList.remove('busy');
+    document.getElementById('btn-txt').textContent = '🔍 Run Security Audit';
+    setTimeout(() => statusBar.classList.remove('show'), 2500);
   }
 }
 
-// ── Report rendering ──────────────────────────────────────────────────────────
-function severityColor(sev) {
-  return { critical: '#ff4d6a', high: '#ff7d3b', medium: '#f5c542', low: '#4ade80', info: '#60c4ff' }[sev] || '#aaa';
+function setStatus(msg) { document.getElementById('status-txt').textContent = msg; }
+
+/* ── PDF export ──────────────────────────────────────────────────────────── */
+async function downloadPDF() {
+  if (!lastReport) return;
+  const btn = document.getElementById('pdf-btn');
+  if (btn) { btn.textContent = '⏳ Generating PDF…'; btn.disabled = true; }
+  try {
+    const res = await fetch('/api/report/pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(lastReport),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tonaudit-${lastReport.contractName}.pdf`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('PDF error: ' + err.message);
+  } finally {
+    if (btn) { btn.textContent = '📄 Download PDF Report'; btn.disabled = false; }
+  }
+}
+
+/* ── Render report ───────────────────────────────────────────────────────── */
+function sevColor(s) {
+  return { critical:'var(--critical)', high:'var(--high)', medium:'var(--medium)', low:'var(--low)', info:'var(--info)' }[s] || 'var(--muted)';
+}
+function esc(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function renderReport(r) {
-  const content = document.getElementById('report-content');
-  content.style.display = 'block';
-  document.getElementById('report-empty').style.display = 'none';
+  const el = document.getElementById('rp-content');
+  el.style.display = 'block';
+  document.getElementById('rp-empty').style.display = 'none';
 
   // Score ring
   const score = r.score;
-  const scoreColor = score >= 80 ? '#4ade80' : score >= 60 ? '#f5c542' : score >= 40 ? '#ff7d3b' : '#ff4d6a';
-  const circ = 2 * Math.PI * 36;
-  const dash = circ * score / 100;
+  const scoreColor = score >= 80 ? 'var(--low)' : score >= 60 ? 'var(--medium)' : score >= 40 ? 'var(--high)' : 'var(--critical)';
+  const R = 34, C = 2 * Math.PI * R;
+  const dash = C * score / 100;
 
-  // Severity counts
-  const counts = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
-  r.findings.forEach(f => counts[f.severity] = (counts[f.severity] || 0) + 1);
-
+  // Counts
+  const cnt = {};
+  r.findings.forEach(f => cnt[f.severity] = (cnt[f.severity]||0)+1);
   const auditTime = new Date(r.auditedAt).toLocaleString();
+  const langLabel = r.language === 'func' ? 'FunC' : r.language === 'tact' ? 'Tact' : 'Unknown';
 
-  content.innerHTML = `
+  el.innerHTML = `
     <!-- Score -->
-    <div class="score-widget">
-      <div class="score-ring-wrap">
-        <svg class="score-ring" width="88" height="88" viewBox="0 0 88 88">
-          <circle cx="44" cy="44" r="36" fill="none" stroke="#1a1d2e" stroke-width="8"/>
-          <circle cx="44" cy="44" r="36" fill="none" stroke="${scoreColor}" stroke-width="8"
-            stroke-dasharray="${dash} ${circ}" stroke-linecap="round"
-            style="transition: stroke-dasharray 1s ease"/>
+    <div class="score-card">
+      <div class="ring-wrap">
+        <svg width="80" height="80" viewBox="0 0 80 80" style="transform:rotate(-90deg)">
+          <circle cx="40" cy="40" r="${R}" fill="none" stroke="var(--surface2)" stroke-width="7"/>
+          <circle cx="40" cy="40" r="${R}" fill="none" stroke="${scoreColor}" stroke-width="7"
+            stroke-dasharray="${dash} ${C}" stroke-linecap="round" style="transition:stroke-dasharray 1.1s ease"/>
         </svg>
-        <div class="score-value" style="color:${scoreColor}">${score}</div>
+        <span class="ring-num" style="color:${scoreColor}">${score}</span>
       </div>
       <div class="score-info">
-        <h3>${r.contractName}</h3>
-        <div style="margin-bottom:6px">
-          <span class="risk-badge risk-${r.overallRisk}">${r.overallRisk.toUpperCase()} RISK</span>
-        </div>
-        <p>${r.summary}</p>
+        <h3>${esc(r.contractName)}</h3>
+        <span class="risk-badge r-${r.overallRisk}" style="margin-bottom:6px;display:inline-block">${r.overallRisk.toUpperCase()}</span>
+        <p>${esc(r.summary)}</p>
       </div>
     </div>
 
     <!-- Meta -->
-    <div class="report-meta">
+    <div class="meta-grid">
+      <div class="meta-card"><div class="meta-lbl">Language</div><div class="meta-val">${langLabel}</div></div>
+      <div class="meta-card"><div class="meta-lbl">Lines of Code</div><div class="meta-val">${r.linesOfCode}</div></div>
+      <div class="meta-card"><div class="meta-lbl">Total Findings</div><div class="meta-val">${r.findings.length}</div></div>
       <div class="meta-card">
-        <div class="meta-label">Language</div>
-        <div class="meta-value">${r.language === 'func' ? 'FunC' : r.language === 'tact' ? 'Tact' : 'Unknown'}</div>
-      </div>
-      <div class="meta-card">
-        <div class="meta-label">Lines of Code</div>
-        <div class="meta-value">${r.linesOfCode}</div>
-      </div>
-      <div class="meta-card">
-        <div class="meta-label">Total Findings</div>
-        <div class="meta-value">${r.findings.length}</div>
-      </div>
-      <div class="meta-card">
-        <div class="meta-label">Critical / High</div>
-        <div class="meta-value" style="color:${counts.critical > 0 ? '#ff4d6a' : counts.high > 0 ? '#ff7d3b' : '#4ade80'}">
-          ${counts.critical} / ${counts.high}
+        <div class="meta-lbl">Critical / High</div>
+        <div class="meta-val" style="color:${(cnt.critical||0)>0?'var(--critical)':(cnt.high||0)>0?'var(--high)':'var(--low)'}">
+          ${cnt.critical||0} / ${cnt.high||0}
         </div>
       </div>
     </div>
 
+    <!-- PDF export -->
+    <button class="export-btn" id="pdf-btn" onclick="downloadPDF()">📄 Download PDF Report</button>
+
     <!-- Findings -->
-    <div class="section-header">
-      <div class="section-title">🔎 Security Findings</div>
-      <div class="findings-count">${r.findings.length} issues</div>
+    <div class="sec-hdr">
+      <span class="sec-title">🔎 Security Findings</span>
+      <span class="sec-count">${r.findings.length} issues</span>
     </div>
 
     ${r.findings.length === 0 ? `
-      <div class="analysis-card" style="text-align:center;padding:24px">
-        <div style="font-size:32px;margin-bottom:8px">✅</div>
+      <div class="analysis-card" style="text-align:center;padding:28px">
+        <div style="font-size:36px;margin-bottom:8px">✅</div>
         <div style="font-weight:600;margin-bottom:4px">No issues found</div>
-        <div style="font-size:13px;color:var(--text-muted)">This contract looks secure!</div>
-      </div>
-    ` : r.findings.map((f, i) => `
-      <div class="finding-card" id="finding-${i}">
-        <div class="finding-header" onclick="toggleFinding(${i})">
-          <div class="severity-dot sev-${f.severity}"></div>
-          <div class="finding-title">${escHtml(f.title)}</div>
-          <div class="finding-id">${f.id}</div>
-          <div class="finding-chevron">▼</div>
+        <div style="font-size:12px;color:var(--muted)">This contract looks secure!</div>
+      </div>` :
+      r.findings.map((f, i) => `
+      <div class="finding" id="f${i}">
+        <div class="finding-hdr" onclick="toggleF(${i})">
+          <div class="sev-dot d-${f.severity}"></div>
+          <div class="finding-title">${esc(f.title)}</div>
+          <div class="finding-id">${esc(f.id)}</div>
+          <div class="finding-chev">▼</div>
         </div>
         <div class="finding-body">
-          ${f.location ? `<div class="finding-row">
-            <div class="finding-row-label">Location</div>
-            <div class="finding-row-value" style="font-family:var(--mono);color:var(--info)">${escHtml(f.location)}</div>
-          </div>` : ''}
-          <div class="finding-row">
-            <div class="finding-row-label">Description</div>
-            <div class="finding-row-value">${escHtml(f.description)}</div>
-          </div>
-          ${f.codeSnippet ? `<div class="finding-row">
-            <div class="finding-row-label">Code</div>
-            <div class="code-block">${escHtml(f.codeSnippet)}</div>
-          </div>` : ''}
-          <div class="finding-row rec">
-            <div class="finding-row-label">Recommendation</div>
-            <div class="finding-row-value">${escHtml(f.recommendation)}</div>
-          </div>
+          ${f.location ? `<div class="fb-row"><div class="fb-lbl">Location</div><div class="fb-loc">${esc(f.location)}</div></div>` : ''}
+          <div class="fb-row"><div class="fb-lbl">Description</div><div class="fb-val">${esc(f.description)}</div></div>
+          ${f.codeSnippet ? `<div class="fb-row"><div class="fb-lbl">Code</div><div class="code-snip">${esc(f.codeSnippet)}</div></div>` : ''}
+          <div class="fb-row"><div class="fb-lbl">Recommendation</div><div class="fb-rec">${esc(f.recommendation)}</div></div>
         </div>
-      </div>
-    `).join('')}
+      </div>`).join('')}
 
-    <!-- Gas & Architecture -->
-    <div class="section-header" style="margin-top:24px">
-      <div class="section-title">⚙️ Analysis</div>
+    <!-- Analysis -->
+    <div class="sec-hdr" style="margin-top:22px">
+      <span class="sec-title">⚙️ Analysis</span>
     </div>
     <div class="analysis-card">
       <h4>⛽ Gas Analysis</h4>
-      <p>${escHtml(r.gasAnalysis)}</p>
+      <p>${esc(r.gasAnalysis)}</p>
     </div>
     <div class="analysis-card">
       <h4>🏗️ Architecture Notes</h4>
-      <p>${escHtml(r.architectureNotes)}</p>
+      <p>${esc(r.architectureNotes)}</p>
     </div>
 
-    <div style="text-align:center;margin-top:20px;font-size:11px;color:var(--text-dim)">
-      Audited at ${auditTime} · TonAudit AI v1.0
-    </div>
-  `;
+    <div style="text-align:center;margin:20px 0 4px;font-size:10px;color:var(--dim)">
+      Audited ${auditTime} · TonAudit AI v1.0 ·
+      <a href="https://github.com/ripgtxgt/ton-audit-ai" target="_blank" rel="noopener">github.com/ripgtxgt/ton-audit-ai</a>
+    </div>`;
 
-  // Auto-open first critical/high finding
-  const firstImportant = r.findings.findIndex(f => f.severity === 'critical' || f.severity === 'high');
-  if (firstImportant >= 0) toggleFinding(firstImportant);
-
-  content.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Auto-open first critical/high
+  const first = r.findings.findIndex(f => f.severity === 'critical' || f.severity === 'high');
+  if (first >= 0) toggleF(first);
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function toggleFinding(i) {
-  document.getElementById('finding-' + i).classList.toggle('open');
-}
+function toggleF(i) { document.getElementById('f'+i)?.classList.toggle('open'); }
 
-function escHtml(str) {
-  if (!str) return '';
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ── Init ──────────────────────────────────────────────────────────────────────
+/* ── Boot ────────────────────────────────────────────────────────────────── */
 loadSamples();
-switchTab('paste'); // ensure correct initial state
+setTab('paste');
 </script>
 </body>
 </html>

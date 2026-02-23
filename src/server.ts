@@ -5,6 +5,7 @@ import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
 import { auditContract, AuditReport } from "./auditor";
+import { generatePDF } from "./pdf";
 
 dotenv.config();
 
@@ -146,6 +147,24 @@ app.post("/api/audit/upload", upload.single("contract"), async (req: Request, re
     send("error", { message: err instanceof Error ? err.message : "Audit failed" });
   } finally {
     res.end();
+  }
+});
+
+// PDF generation endpoint — accepts completed report JSON, returns PDF
+app.post("/api/report/pdf", async (req: Request, res: Response) => {
+  const report = req.body as AuditReport;
+  if (!report?.contractName || !Array.isArray(report?.findings)) {
+    return res.status(400).json({ error: "Invalid report object" });
+  }
+  try {
+    const pdf = await generatePDF(report);
+    const filename = `tonaudit-${report.contractName.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Content-Length", pdf.length);
+    res.end(pdf);
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "PDF generation failed" });
   }
 });
 
