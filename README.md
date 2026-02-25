@@ -42,6 +42,7 @@ Top Finding:
 
 ## Features
 
+- **Batch analysis** — audit up to 10 contracts simultaneously, get a comparison report showing risk ranking, common vulnerability patterns, and per-contract breakdowns
 - **FunC & Tact support** — auto-detects language from file extension or code patterns
 - **15+ vulnerability categories** including TON-specific attack vectors:
   - Reentrancy via async message chains
@@ -129,6 +130,45 @@ curl -X POST http://localhost:3099/api/audit/upload \
 
 ---
 
+## Batch Analysis
+
+Audit multiple contracts at once and get a comparison report:
+
+```bash
+curl -X POST http://localhost:3099/api/audit/batch \
+  -F "contracts=@jetton_minter.fc" \
+  -F "contracts=@jetton_wallet.fc" \
+  -F "contracts=@vulnerable_escrow.fc"
+```
+
+**Batch response** (SSE stream, then final `batch_report` event):
+```json
+{
+  "totalContracts": 3,
+  "reports": [...],
+  "comparison": {
+    "riskRanking": [
+      { "contractName": "vulnerable_escrow", "score": 12, "overallRisk": "critical" },
+      { "contractName": "jetton_wallet",     "score": 68, "overallRisk": "medium" },
+      { "contractName": "jetton_minter",     "score": 72, "overallRisk": "medium" }
+    ],
+    "totalFindings": 21,
+    "criticalCount": 4,
+    "highCount": 5,
+    "mostVulnerable": "vulnerable_escrow",
+    "safest": "jetton_minter",
+    "commonCategories": [
+      { "category": "Access Control", "count": 3 },
+      { "category": "State Management", "count": 2 }
+    ]
+  }
+}
+```
+
+Via Web UI: click the **📦 Batch Audit** tab, drop 2–10 contract files, and click **Run Batch Audit**.
+
+---
+
 ## API Reference
 
 ### `GET /api/health`
@@ -138,6 +178,15 @@ curl -X POST http://localhost:3099/api/audit/upload \
 
 ### `GET /api/samples`
 Returns list of built-in sample contracts.
+
+### `POST /api/audit/batch`
+**Request:** `multipart/form-data` with multiple `contracts` fields (`.fc`/`.tact` files, max 10)
+
+**Response** (SSE stream):
+- `progress` events as each contract is audited
+- `partial` events with per-contract score/risk as they complete  
+- `batch_report` event with full comparison report
+- `done` event when finished
 
 ### `POST /api/audit`
 **Request:**
@@ -229,8 +278,8 @@ ton-audit-ai/
 
 ## Roadmap
 
-- [ ] PDF report export
-- [ ] Batch audit (multiple contracts)
+- [x] PDF report export
+- [x] Batch audit (multiple contracts, comparison report)
 - [ ] Historical audit storage
 - [ ] GitHub Action integration
 - [ ] Tact-specific vulnerability patterns

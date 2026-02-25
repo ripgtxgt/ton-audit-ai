@@ -419,6 +419,7 @@ footer {
     <div class="tabs">
       <button class="tab-btn active" onclick="setTab('paste')">📝 Paste Code</button>
       <button class="tab-btn"        onclick="setTab('upload')">📁 Upload File</button>
+      <button class="tab-btn"        onclick="setTab('batch')">📦 Batch Audit</button>
     </div>
 
     <textarea id="code-input"
@@ -439,13 +440,27 @@ footer {
     </div>
     <input type="file" id="file-input" accept=".fc,.func,.tact" onchange="fileSelected(event)">
 
+    <!-- Batch mode -->
+    <div id="batch-zone" style="display:none">
+      <div class="drop-zone show" id="batch-drop"
+           ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="batchDrop(event)"
+           onclick="document.getElementById('batch-input').click()"
+           style="margin-bottom:10px">
+        <div class="drop-icon">📦</div>
+        <div class="drop-text">Drop 2–10 contract files for batch analysis</div>
+        <div class="drop-sub">.fc and .tact — get a comparison report across all contracts</div>
+      </div>
+      <input type="file" id="batch-input" accept=".fc,.func,.tact" multiple onchange="batchSelected(event)">
+      <div id="batch-file-list" style="display:none;margin-bottom:8px"></div>
+    </div>
+
     <div class="file-chip" id="file-chip">
       <span>📄</span>
       <span id="file-chip-name">—</span>
       <span class="file-chip-x" onclick="clearFile()">✕</span>
     </div>
 
-    <button class="audit-btn" id="audit-btn" onclick="runAudit()">
+    <button class="audit-btn" id="audit-btn" onclick="tab==='batch' ? runBatch() : runAudit()">
       <div class="spin"></div>
       <span id="btn-txt">🔍 Run Security Audit</span>
     </button>
@@ -519,10 +534,14 @@ async function loadSample(name) {
 /* ── Tab ─────────────────────────────────────────────────────────────────── */
 function setTab(t) {
   tab = t;
-  document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === (t === 'paste' ? 0 : 1)));
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', (i===0&&t==='paste')||(i===1&&t==='upload')||(i===2&&t==='batch'));
+  });
   document.getElementById('code-input').style.display = t === 'paste' ? 'block' : 'none';
   const dz = document.getElementById('drop-zone');
   if (t === 'upload') dz.classList.add('show'); else dz.classList.remove('show');
+  document.getElementById('batch-zone').style.display = t === 'batch' ? 'block' : 'none';
+  document.getElementById('btn-txt').textContent = t === 'batch' ? '📦 Run Batch Audit' : '🔍 Run Security Audit';
 }
 
 /* ── File ────────────────────────────────────────────────────────────────── */
@@ -741,6 +760,220 @@ function renderReport(r) {
 }
 
 function toggleF(i) { document.getElementById('f'+i)?.classList.toggle('open'); }
+
+/* ── Batch file handling ─────────────────────────────────────────────────── */
+let batchFiles = [];
+
+function batchDrop(e) {
+  e.preventDefault(); e.currentTarget.classList.remove('drag');
+  addBatchFiles(Array.from(e.dataTransfer.files));
+}
+function batchSelected(e) { addBatchFiles(Array.from(e.target.files)); }
+
+function addBatchFiles(newFiles) {
+  const allowed = ['.fc', '.func', '.tact'];
+  const valid = newFiles.filter(f => allowed.some(ext => f.name.toLowerCase().endsWith(ext)));
+  batchFiles = [...batchFiles, ...valid].slice(0, 10); // max 10
+  renderBatchFileList();
+}
+
+function removeBatchFile(i) {
+  batchFiles.splice(i, 1);
+  renderBatchFileList();
+}
+
+function renderBatchFileList() {
+  const el = document.getElementById('batch-file-list');
+  if (batchFiles.length === 0) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">${batchFiles.length} file${batchFiles.length>1?'s':''} queued (max 10):</div>
+    ${batchFiles.map((f,i) => `
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--surface);
+                  border:1px solid var(--border);border-radius:6px;margin-bottom:4px;font-size:12px;">
+        <span>${f.name.endsWith('.tact')?'🟣':'🔵'}</span>
+        <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${f.name}</span>
+        <span style="color:var(--dim);font-size:11px">${(f.size/1024).toFixed(1)}KB</span>
+        <span style="cursor:pointer;color:var(--dim)" onclick="removeBatchFile(${i})">✕</span>
+      </div>`).join('')}`;
+}
+
+/* ── Batch audit ─────────────────────────────────────────────────────────── */
+let lastBatchReport = null;
+
+async function runBatch() {
+  if (batchFiles.length < 2) { alert('Add at least 2 contract files for batch analysis.'); return; }
+
+  const btn = document.getElementById('audit-btn');
+  const statusBar = document.getElementById('status-bar');
+  btn.disabled = true; btn.classList.add('busy');
+  document.getElementById('btn-txt').textContent = 'Auditing…';
+  statusBar.classList.add('show');
+  setStatus(`📦 Starting batch audit of ${batchFiles.length} contracts…`);
+
+  document.getElementById('rp-empty').style.display = 'none';
+  document.getElementById('rp-content').style.display = 'none';
+  lastBatchReport = null;
+
+  const formData = new FormData();
+  batchFiles.forEach(f => formData.append('contracts', f));
+
+  try {
+    const res = await fetch('/api/audit/batch', { method: 'POST', body: formData });
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const d = JSON.parse(line.slice(6));
+        if (d.message) setStatus(d.message);
+        if (d.filename && d.score !== undefined) {
+          setStatus(`✅ ${d.filename} — score ${d.score}/100 (${d.risk})`);
+        }
+        if (d.reports) { lastBatchReport = d; renderBatchReport(d); }
+      }
+    }
+  } catch(err) {
+    setStatus('❌ ' + err.message);
+  } finally {
+    btn.disabled = false; btn.classList.remove('busy');
+    document.getElementById('btn-txt').textContent = '📦 Run Batch Audit';
+    setTimeout(() => statusBar.classList.remove('show'), 3000);
+  }
+}
+
+/* ── Batch report rendering ──────────────────────────────────────────────── */
+function renderBatchReport(br) {
+  const el = document.getElementById('rp-content');
+  el.style.display = 'block';
+  document.getElementById('rp-empty').style.display = 'none';
+  const c = br.comparison;
+  const auditTime = new Date(br.auditedAt).toLocaleString();
+
+  const riskRankRows = c.riskRanking.map(r => {
+    const scoreColor = r.score>=80?'var(--low)':r.score>=60?'var(--medium)':r.score>=40?'var(--high)':'var(--critical)';
+    return `<tr>
+      <td style="padding:8px 10px;font-size:12px;font-weight:600">${esc(r.contractName)}</td>
+      <td style="padding:8px 10px;text-align:center">
+        <span class="risk-badge r-${r.overallRisk}">${r.overallRisk.toUpperCase()}</span>
+      </td>
+      <td style="padding:8px 10px;text-align:center;font-size:14px;font-weight:700;color:${scoreColor}">${r.score}</td>
+    </tr>`;
+  }).join('');
+
+  const catRows = c.commonCategories.map(cat => `
+    <div style="display:flex;justify-content:space-between;align-items:center;
+                padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <span style="color:var(--muted)">${esc(cat.category)}</span>
+      <span style="font-weight:600;color:var(--high)">${cat.count} findings</span>
+    </div>`).join('');
+
+  // Per-contract mini cards
+  const contractCards = br.reports.map((r, idx) => {
+    const scoreColor = r.score>=80?'var(--low)':r.score>=60?'var(--medium)':r.score>=40?'var(--high)':'var(--critical)';
+    const cnt = {};
+    r.findings.forEach(f => cnt[f.severity]=(cnt[f.severity]||0)+1);
+    return `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+                padding:12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-size:18px;font-weight:800;color:${scoreColor}">${r.score}</span>
+        <div>
+          <div style="font-size:13px;font-weight:600">${esc(r.contractName)}</div>
+          <div style="font-size:11px;color:var(--muted)">${r.language.toUpperCase()} · ${r.linesOfCode} LoC</div>
+        </div>
+        <span class="risk-badge r-${r.overallRisk}" style="margin-left:auto">${r.overallRisk.toUpperCase()}</span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        ${['critical','high','medium','low'].filter(s=>cnt[s]).map(s=>`
+          <span style="font-size:11px;padding:2px 7px;border-radius:20px;
+                       background:rgba(0,0,0,0.3);color:${sevColor(s)};border:1px solid ${sevColor(s)}4d">
+            ${cnt[s]} ${s}
+          </span>`).join('')}
+        ${r.findings.length===0?'<span style="font-size:11px;color:var(--low)">✅ No issues</span>':''}
+      </div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5">${esc(r.summary.slice(0,140))}…</div>
+      <button onclick="showSingleFromBatch(${idx})"
+        style="margin-top:8px;font-size:11px;padding:4px 10px;border-radius:6px;
+               background:var(--surface2);border:1px solid var(--border);color:var(--muted);
+               cursor:pointer;font-family:var(--font)">
+        View full report →
+      </button>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <!-- Batch header -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+                padding:16px;margin-bottom:14px">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">📦 Batch Audit Complete</div>
+      <div style="font-size:12px;color:var(--muted)">${br.totalContracts} contracts · ${c.totalFindings} total findings · ${auditTime}</div>
+    </div>
+
+    <!-- Summary stats -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div class="meta-card"><div class="meta-lbl">Total Findings</div><div class="meta-val">${c.totalFindings}</div></div>
+      <div class="meta-card"><div class="meta-lbl">Critical / High</div>
+        <div class="meta-val" style="color:${c.criticalCount>0?'var(--critical)':c.highCount>0?'var(--high)':'var(--low)'}">
+          ${c.criticalCount} / ${c.highCount}
+        </div>
+      </div>
+      <div class="meta-card">
+        <div class="meta-lbl">Most Vulnerable</div>
+        <div class="meta-val" style="font-size:11px;color:var(--critical)">${esc(c.mostVulnerable)}</div>
+      </div>
+      <div class="meta-card">
+        <div class="meta-lbl">Safest Contract</div>
+        <div class="meta-val" style="font-size:11px;color:var(--low)">${esc(c.safest)}</div>
+      </div>
+    </div>
+
+    <!-- Risk ranking table -->
+    <div class="sec-hdr"><span class="sec-title">🏆 Risk Ranking</span></div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+                overflow:hidden;margin-bottom:14px">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="background:var(--surface2);font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em">
+            <th style="padding:8px 10px;text-align:left">Contract</th>
+            <th style="padding:8px 10px;text-align:center">Risk</th>
+            <th style="padding:8px 10px;text-align:center">Score</th>
+          </tr>
+        </thead>
+        <tbody>${riskRankRows}</tbody>
+      </table>
+    </div>
+
+    <!-- Common vuln categories -->
+    <div class="sec-hdr"><span class="sec-title">🔁 Common Vulnerability Categories</span></div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+                padding:12px;margin-bottom:14px">
+      ${catRows || '<div style="font-size:12px;color:var(--muted)">No common patterns found</div>'}
+    </div>
+
+    <!-- Per-contract cards -->
+    <div class="sec-hdr"><span class="sec-title">📄 Individual Reports</span></div>
+    ${contractCards}
+
+    <div style="text-align:center;margin:16px 0 4px;font-size:10px;color:var(--dim)">
+      TonAudit AI Batch Report · ${auditTime}
+    </div>`;
+
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function showSingleFromBatch(idx) {
+  if (!lastBatchReport || !lastBatchReport.reports[idx]) return;
+  lastReport = lastBatchReport.reports[idx];
+  renderReport(lastBatchReport.reports[idx]);
+}
 
 /* ── Boot ────────────────────────────────────────────────────────────────── */
 loadSamples();
