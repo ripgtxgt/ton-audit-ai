@@ -225,9 +225,30 @@ app.post(
     const send = (event: string, data: unknown) =>
       res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 
+    const BATCH_TIMEOUT_MS     = 5 * 60 * 1000; // 5 minutes total
+    const CONTRACT_TIMEOUT_MS  = 90 * 1000;      // 90 seconds per contract
+
+    // Reject a promise after `ms` milliseconds with a descriptive error.
+    function rejectAfter(ms: number, label: string): Promise<never> {
+      return new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`Timeout: ${label} exceeded ${ms / 1000}s`)), ms)
+      );
+    }
+
     const reports: AuditReport[] = [];
+    const batchDeadline = Date.now() + BATCH_TIMEOUT_MS;
 
     for (let i = 0; i < files.length; i++) {
+      // Abort remaining contracts if the overall batch deadline has passed.
+      if (Date.now() >= batchDeadline) {
+        send("partial_error", {
+          index: i,
+          filename: files[i].originalname,
+          error: "Batch timeout (5 min): skipped remaining contracts",
+        });
+        break;
+      }
+
       const file = files[i];
       const filename = file.originalname;
       const code = file.buffer.toString("utf-8");
@@ -240,7 +261,11 @@ app.post(
       });
 
       try {
-        const report = await auditContract(code, filename, () => {});
+        // Race the audit against a per-contract 90-second timeout.
+        const report = await Promise.race([
+          auditContract(code, filename, () => {}),
+          rejectAfter(CONTRACT_TIMEOUT_MS, filename),
+        ]);
         reports.push(report);
         send("partial", { index: i, filename, score: report.score, risk: report.overallRisk });
       } catch (err) {

@@ -188,26 +188,59 @@ function parseAuditJSON(raw: string): ReturnType<typeof JSON.parse> {
   return parsed;
 }
 
-// ─── Main audit function ───────────────────────────────────────────────────────
+// ─── Retry helper (exponential backoff for rate limits) ───────────────────────
 
-export async function auditContract(
+const RETRY_DELAYS_MS = [2_000, 4_000, 8_000]; // 3 attempts: 2 s → 4 s → 8 s
+
+function isRateLimitError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as Record<string, unknown>;
+  // Anthropic SDK: APIStatusError with status 429
+  if (typeof e["status"] === "number" && e["status"] === 429) return true;
+  // OpenAI-compat: similar shape
+  if (e["statusCode"] === 429) return true;
+  // Generic message-based check
+  const msg = String(e["message"] ?? "").toLowerCase();
+  return msg.includes("rate limit") || msg.includes("429") || msg.includes("too many requests");
+}
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  label: string
+): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (!isRateLimitError(err) || attempt === RETRY_DELAYS_MS.length) throw err;
+      const delay = RETRY_DELAYS_MS[attempt];
+      console.warn(`[TonAudit] ${label}: rate limit hit, retrying in ${delay}ms (attempt ${attempt + 1}/${RETRY_DELAYS_MS.length})`);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastErr; // unreachable but keeps TypeScript happy
+}
+
+// ─── Core LLM call (wrapped separately so retry scope is clean) ───────────────
+
+async function callLLM(
   code: string,
-  filename?: string,
-  onChunk?: (chunk: string) => void
-): Promise<AuditReport> {
-  const language = detectLanguage(code, filename);
-  const lines    = code.split("\n").filter((l) => l.trim().length > 0).length;
+  language: ContractLanguage,
+  filename: string | undefined,
+  onChunk: ((chunk: string) => void) | undefined
+): Promise<string> {
   let fullResponse = "";
 
   if (anthropicClient) {
-    // ── Anthropic SDK (production) ───────────────────────────────────────────
+    // ── Anthropic SDK (production) ─────────────────────────────────────────
     const stream = anthropicClient.messages.stream({
       model: MODEL,
       max_tokens: 4096,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: buildPrompt(code, language, filename) }],
     });
-
     for await (const event of stream) {
       if (
         event.type === "content_block_delta" &&
@@ -218,7 +251,7 @@ export async function auditContract(
       }
     }
   } else {
-    // ── OpenAI-compat proxy (local dev) ──────────────────────────────────────
+    // ── OpenAI-compat proxy (local dev) ───────────────────────────────────
     const stream = await openaiClient!.chat.completions.create({
       model: MODEL,
       max_tokens: 4096,
@@ -228,13 +261,31 @@ export async function auditContract(
         { role: "user",   content: buildPrompt(code, language, filename) },
       ],
     });
-
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta?.content || "";
       fullResponse += delta;
       if (delta) onChunk?.(delta);
     }
   }
+
+  return fullResponse;
+}
+
+// ─── Main audit function ───────────────────────────────────────────────────────
+
+export async function auditContract(
+  code: string,
+  filename?: string,
+  onChunk?: (chunk: string) => void
+): Promise<AuditReport> {
+  const language = detectLanguage(code, filename);
+  const lines    = code.split("\n").filter((l) => l.trim().length > 0).length;
+
+  // Retry only the LLM call; JSON parsing / report assembly errors are not retried.
+  const fullResponse = await withRetry(
+    () => callLLM(code, language, filename, onChunk),
+    filename ?? "unknown"
+  );
 
   const parsed  = parseAuditJSON(fullResponse);
 
