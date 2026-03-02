@@ -420,6 +420,7 @@ footer {
       <button class="tab-btn active" onclick="setTab('paste')">📝 Paste Code</button>
       <button class="tab-btn"        onclick="setTab('upload')">📁 Upload File</button>
       <button class="tab-btn"        onclick="setTab('batch')">📦 Batch Audit</button>
+      <button class="tab-btn"        onclick="setTab('github')">🐙 GitHub Repo</button>
     </div>
 
     <textarea id="code-input"
@@ -460,7 +461,19 @@ footer {
       <span class="file-chip-x" onclick="clearFile()">✕</span>
     </div>
 
-    <button class="audit-btn" id="audit-btn" onclick="tab==='batch' ? runBatch() : runAudit()">
+    <!-- GitHub repo input zone -->
+    <div id="github-zone" style="display:none;padding:8px 0">
+      <label style="font-size:13px;color:#94a3b8;display:block;margin-bottom:6px">GitHub Repository URL</label>
+      <input id="github-url" type="text"
+        placeholder="https://github.com/owner/repo"
+        style="width:100%;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box"
+        onkeydown="if(event.key==='Enter')runGithubAudit()" />
+      <div style="font-size:12px;color:#64748b;margin-top:6px">
+        Scans all .fc / .tact / .func contracts in the repo (max 10)
+      </div>
+    </div>
+
+    <button class="audit-btn" id="audit-btn" onclick="tab==='batch' ? runBatch() : tab==='github' ? runGithubAudit() : runAudit()">
       <div class="spin"></div>
       <span id="btn-txt">🔍 Run Security Audit</span>
     </button>
@@ -541,7 +554,9 @@ function setTab(t) {
   const dz = document.getElementById('drop-zone');
   if (t === 'upload') dz.classList.add('show'); else dz.classList.remove('show');
   document.getElementById('batch-zone').style.display = t === 'batch' ? 'block' : 'none';
-  document.getElementById('btn-txt').textContent = t === 'batch' ? '📦 Run Batch Audit' : '🔍 Run Security Audit';
+  document.getElementById('github-zone').style.display = t === 'github' ? 'block' : 'none';
+  const btnLabels = { paste: '🔍 Run Security Audit', upload: '🔍 Run Security Audit', batch: '📦 Run Batch Audit', github: '🐙 Audit GitHub Repo' };
+  document.getElementById('btn-txt').textContent = btnLabels[t] || '🔍 Run Security Audit';
 }
 
 /* ── File ────────────────────────────────────────────────────────────────── */
@@ -800,6 +815,86 @@ function renderBatchFileList() {
 
 /* ── Batch audit ─────────────────────────────────────────────────────────── */
 let lastBatchReport = null;
+
+
+/* ── GitHub Repo Audit ───────────────────────────────────────────────────── */
+async function runGithubAudit() {
+  const repoUrl = (document.getElementById('github-url').value || '').trim();
+  if (!repoUrl) { alert('Enter a GitHub repository URL.'); return; }
+  if (!/github\.com\/[^/]+\/[^/]+/.test(repoUrl)) {
+    alert('Please enter a valid GitHub URL, e.g. https://github.com/owner/repo');
+    return;
+  }
+
+  const btn = document.getElementById('audit-btn');
+  const statusBar = document.getElementById('status-bar');
+  btn.disabled = true; btn.classList.add('busy');
+  document.getElementById('btn-txt').textContent = 'Scanning…';
+  statusBar.classList.add('visible');
+  document.getElementById('status-txt').textContent = '🔍 Connecting to GitHub…';
+
+  const reportPane = document.querySelector('.report-pane');
+  reportPane.innerHTML = '';
+
+  try {
+    const es = new EventSource('/api/audit/github?_=' + Date.now());
+    // SSE uses POST — use fetch + ReadableStream instead
+    const res = await fetch('/api/audit/github', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repoUrl }),
+    });
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop() || '';
+      for (const part of parts) {
+        const lines = part.split('\n');
+        let event = 'message', dataStr = '';
+        for (const line of lines) {
+          if (line.startsWith('event: ')) event = line.slice(7).trim();
+          if (line.startsWith('data: ')) dataStr = line.slice(6);
+        }
+        if (!dataStr) continue;
+        try {
+          const data = JSON.parse(dataStr);
+          if (event === 'status' || event === 'progress') {
+            document.getElementById('status-txt').textContent = data.message || '';
+          } else if (event === 'partial') {
+            const risk = data.risk || 'unknown';
+            const colors = { critical:'#ef4444',high:'#f97316',medium:'#eab308',low:'#22c55e',info:'#3b82f6' };
+            reportPane.innerHTML += `<div style="padding:8px 12px;background:#1e293b;border-radius:6px;margin-bottom:6px;border-left:3px solid ${colors[risk]||'#64748b'}">
+              <span style="color:#94a3b8;font-size:12px">${data.filename}</span>
+              <span style="float:right;font-weight:700;color:${colors[risk]||'#94a3b8'}">${data.score}/100 ${risk.toUpperCase()}</span>
+            </div>`;
+          } else if (event === 'partial_error') {
+            reportPane.innerHTML += `<div style="padding:8px 12px;background:#1e293b;border-radius:6px;margin-bottom:6px;border-left:3px solid #ef4444">
+              <span style="color:#94a3b8;font-size:12px">${data.filename}</span>
+              <span style="float:right;color:#ef4444;font-size:12px">⚠ ${data.error}</span>
+            </div>`;
+          } else if (event === 'batch_report') {
+            renderBatchReport(data);
+          } else if (event === 'error') {
+            reportPane.innerHTML = `<div style="color:#ef4444;padding:16px">${data.message}</div>`;
+          }
+        } catch (e) {}
+      }
+    }
+  } catch (err) {
+    document.getElementById('status-txt').textContent = '❌ ' + err.message;
+  } finally {
+    btn.disabled = false; btn.classList.remove('busy');
+    document.getElementById('btn-txt').textContent = '🐙 Audit GitHub Repo';
+    statusBar.classList.remove('visible');
+  }
+}
 
 async function runBatch() {
   if (batchFiles.length < 2) { alert('Add at least 2 contract files for batch analysis.'); return; }

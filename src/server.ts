@@ -6,6 +6,7 @@ import fs from "fs";
 import dotenv from "dotenv";
 import { auditContract, AuditReport } from "./auditor";
 import { generatePDF } from "./pdf";
+import { registerGithubAuditRoute } from "./github-endpoint";
 
 dotenv.config();
 
@@ -336,6 +337,9 @@ app.post("/api/report/batch-pdf", async (req: Request, res: Response) => {
     res.status(500).json({ error: err instanceof Error ? err.message : "PDF failed" });
   }
 });
+
+// Register GitHub repo audit route
+registerGithubAuditRoute(app);
 
 app.listen(PORT, () => {
   console.log(`\n⚡ TonAudit AI running at http://localhost:${PORT}`);
